@@ -492,3 +492,17 @@ export function snapshot(ds: Dataset, cfg: Config, id: string, dupClusters: numb
     dupClusters,
   }
 }
+
+/**
+ * The org as it looked at time t, rebuilt from field history: deals created later are dropped and stage, amount,
+ * close date and category are rewound. Activity dates and next steps cannot be rewound, so they are capped at t.
+ */
+export function datasetAt(ds: Dataset, t: number, idx = indexHistory(ds.history)): Dataset {
+  const opps: Opp[] = []
+  for (const o of ds.opps) {
+    const s = stateAt(o, idx.get(o.id), t)
+    if (!s) continue
+    opps.push({ ...o, ...s, lastActivity: o.lastActivity === undefined ? undefined : Math.min(o.lastActivity, t) })
+  }
+  return { opps, history: ds.history.filter(e => e.at <= t), parties: ds.parties }
+}

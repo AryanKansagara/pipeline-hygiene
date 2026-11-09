@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { closeDateUpdateCsv, mergePlanCsv, ownerEmail, survivorshipCsv } from './actions.ts'
 import { autoMap, detect, findHeaderRow, mergeInto, parseAmount, parseCsv, parseDate, validate, emptyDataset } from './csv.ts'
 import { domainOf, findDuplicates, jaroWinkler, mergeBatches, normName, normPhone, pickMaster, survivorship, trigram, type Cluster } from './dedupe.ts'
-import { accuracy, callAt, checkOpp, closeModel, conversion, fcResolver, hygiene, indexHistory, quarterOf, realisticClose, slippage, stateAt, waterfall } from './pipeline.ts'
+import { accuracy, callAt, checkOpp, closeModel, conversion, datasetAt, fcResolver, hygiene, indexHistory, quarterOf, realisticClose, slippage, stateAt, waterfall } from './pipeline.ts'
 import { generate, sampleConfig, SAMPLE_AS_OF } from './sample.ts'
 import { DAY, defaultConfig, type Dataset, type HistEvent, type Opp, type Party } from './types.ts'
 
@@ -361,4 +361,15 @@ test('synthetic account base: most of the 300 planted duplicates are found', () 
   const acme = r.clusters.find(c => c.members.some(m => m.name === 'acme.com'))!
   assert.ok(acme.members.some(m => m.name === 'ACME, Inc.'))
   assert.ok(r.clusters.some(c => c.kind === 'contact') && r.clusters.some(c => c.kind === 'lead'))
+})
+
+test('datasetAt rebuilds a past week: later deals vanish, closed deals reopen', () => {
+  const ds: Dataset = {
+    opps: [opp({ id: 'old', stage: 'Closed Won', created: D('2026-09-01') }), opp({ id: 'new', created: D('2026-10-25') })],
+    history: [{ oppId: 'old', at: D('2026-10-20'), field: 'stage', from: 'Negotiation/Review', to: 'Closed Won' }], parties: [],
+  }
+  const past = datasetAt(ds, D('2026-10-10'))
+  assert.deepEqual(past.opps.map(o => [o.id, o.stage]), [['old', 'Negotiation/Review']])
+  assert.equal(past.history.length, 0)
+  assert.equal(past.opps[0].lastActivity, D('2026-10-10'))
 })

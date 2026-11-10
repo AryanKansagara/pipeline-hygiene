@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { closeDateUpdateCsv, mergePlanCsv, ownerEmail, survivorshipCsv } from './actions.ts'
+import { closeDateUpdateCsv, exportCsvs, mergePlanCsv, ownerEmail, survivorshipCsv } from './actions.ts'
 import { autoMap, detect, findHeaderRow, mergeInto, parseAmount, parseCsv, parseDate, validate, emptyDataset } from './csv.ts'
 import { clusterKey, domainOf, findDuplicates, reviewed, jaroWinkler, mergeBatches, normName, normPhone, pickMaster, survivorship, trigram, type Cluster } from './dedupe.ts'
 import { accuracy, callAt, checkOpp, closeModel, conversion, datasetAt, fcResolver, hygiene, indexHistory, quarterOf, realisticClose, slippage, stateAt, waterfall } from './pipeline.ts'
@@ -383,4 +383,22 @@ test('datasetAt rebuilds a past week: later deals vanish, closed deals reopen', 
   assert.deepEqual(past.opps.map(o => [o.id, o.stage]), [['old', 'Negotiation/Review']])
   assert.equal(past.history.length, 0)
   assert.equal(past.opps[0].lastActivity, D('2026-10-10'))
+})
+
+test('sample exported as report CSVs re-imports to the same scores, waterfall and duplicates', () => {
+  const ds = generate('saas'), cfg = sampleConfig('saas')
+  let back = emptyDataset()
+  for (const [name, text] of exportCsvs(ds)) {
+    const t = findHeaderRow(parseCsv(text))
+    const d = detect(t.rows[0])
+    const p = validate(t, autoMap(t.rows[0], d.kind), d.kind)
+    assert.equal(p.issues.filter(i => i.level === 'error').length, 0, name)
+    back = mergeInto(back, p)
+  }
+  assert.equal(back.opps.length, ds.opps.length)
+  assert.equal(hygiene(back, cfg).total.score, hygiene(ds, cfg).total.score)
+  const a = waterfall(back, cfg), b = waterfall(ds, cfg)
+  assert.equal(a.end, b.end)
+  assert.equal(a.realisticEnd, b.realisticEnd)
+  assert.equal(findDuplicates(back.parties).clusters.length, findDuplicates(ds.parties).clusters.length)
 })

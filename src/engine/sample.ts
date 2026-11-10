@@ -82,7 +82,7 @@ export function saasOrg(): Dataset {
         if (s < lastStage && r() < 0.08) continue
         const at = created + Math.floor((span * s) / 8 / DAY) * DAY
         if (at > asOf) break
-        if (r() < 0.04 && s > 2) {
+        if (r() < 0.04 && stage > 0) {
           // A step back before moving on.
           ev.push({ oppId: id, at: at - DAY, field: 'stage', from: DEFAULT_STAGES[stage], to: DEFAULT_STAGES[stage - 1] })
           stage--

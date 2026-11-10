@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { autoMap, detect, FIELDS, findHeaderRow, KIND_LABEL, mergeInto, parseCsv, SOURCE_LABEL, toCsv, validate, type Kind, type Mapping, type Parsed, type Source, type Table } from './engine/csv.ts'
+import { exportCsvs } from './engine/actions.ts'
+import { autoMap, detect, FIELDS, findHeaderRow, KIND_LABEL, mergeInto, parseCsv, SOURCE_LABEL, validate, type Kind, type Mapping, type Parsed, type Source, type Table } from './engine/csv.ts'
 import { isoDate, stageOrder } from './engine/pipeline.ts'
 import { RULE_LABEL, RULES, type Config, type Dataset } from './engine/types.ts'
 import { createBlankProject } from './projectData.ts'
@@ -18,26 +19,6 @@ async function readTable(f: File): Promise<Table> {
     return parseCsv(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { blankrows: true }))
   }
   return parseCsv(await f.text())
-}
-
-/** The sample as the CSV files a real org would export, so the import path can be rehearsed. */
-function sampleCsvs(ds: Dataset): [string, string][] {
-  const out: [string, string][] = []
-  if (ds.opps.length) {
-    out.push(['opportunities.csv', toCsv([['Opportunity ID', 'Opportunity Name', 'Account Name', 'Opportunity Owner', 'Owner Role', 'Stage', 'Amount', 'Close Date', 'Created Date', 'Last Activity', 'Next Step', 'Forecast Category', 'Probability (%)', '# of Contact Roles'],
-      ...ds.opps.map(o => [o.id, o.name, o.account, o.owner, o.team, o.stage, o.amount, isoDate(o.closeDate), isoDate(o.created), o.lastActivity ? isoDate(o.lastActivity) : '', o.nextStep, o.forecastCategory, o.probability ?? '', o.contactRoles ?? ''])])])
-    const NAME = { stage: 'Stage', amount: 'Amount', closeDate: 'Close Date', forecastCategory: 'Forecast Category' } as const
-    const v = (e: Dataset['history'][number], x: string | number | null) => x === null ? '' : e.field === 'closeDate' ? isoDate(Number(x)) : String(x)
-    out.push(['opportunity-field-history.csv', toCsv([['Opportunity ID', 'Edit Date', 'Field / Event', 'Old Value', 'New Value'], ...ds.history.map(e => [e.oppId, new Date(e.at).toISOString(), NAME[e.field], v(e, e.from), v(e, e.to)])])])
-  }
-  for (const k of ['account', 'contact', 'lead'] as const) {
-    const rows = ds.parties.filter(p => p.kind === k)
-    if (!rows.length) continue
-    const cols = [...new Set(rows.flatMap(r => Object.keys(r.fields)))]
-    const idCol = k === 'account' ? 'Account ID' : k === 'contact' ? 'Contact ID' : 'Lead ID'
-    out.push([`${k}s.csv`, toCsv([[idCol, ...cols], ...rows.map(r => [r.id, ...cols.map(c => r.fields[c] ?? '')])])])
-  }
-  return out
 }
 
 export default function DataTab({ project, ds, cfg, update, setConfig }: { project: Project; ds: Dataset; cfg: Config; update(p: Partial<Project>): void; setConfig(p: Partial<Config>): void }) {
@@ -89,7 +70,7 @@ export default function DataTab({ project, ds, cfg, update, setConfig }: { proje
       )}
       <div className="panel">
         <div className="panel-head"><h2>Import</h2><span className="muted small">Salesforce report CSV/XLSX · Data Loader CSV · HubSpot deals export · any CSV</span></div>
-        {project.sampleId && <p className="muted small">This is a synthetic sample, so its data is read-only. Importing here starts a new org. Want to rehearse? Download the sample as CSV files {sampleCsvs(ds).map(([n, c]) => <button key={n} type="button" className="linkish small" onClick={() => download(n, c)}>{n}</button>).reduce<ReactNode[]>((acc, el, i) => i ? [...acc, ', ', el] : [el], [])} and drop them back in.</p>}
+        {project.sampleId && <p className="muted small">This is a synthetic sample, so its data is read-only. Importing here starts a new org. Want to rehearse? Download the sample as CSV files {exportCsvs(ds).map(([n, c]) => <button key={n} type="button" className="linkish small" onClick={() => download(n, c)}>{n}</button>).reduce<ReactNode[]>((acc, el, i) => i ? [...acc, ', ', el] : [el], [])} and drop them back in.</p>}
         <div className={`drop${drag ? ' over' : ''}`} role="button" tabIndex={0} aria-label="Choose CSV or XLSX files to import"
           onClick={() => input.current?.click()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.current?.click() } }}
           onDragOver={e => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}

@@ -1,7 +1,7 @@
 import { toCsv } from './csv.ts'
 import { mergeBatches, survivorship, type Cluster } from './dedupe.ts'
 import { isoDate, type OppRow } from './pipeline.ts'
-import { RULE_LABEL, type RuleId } from './types.ts'
+import { RULE_LABEL, type Dataset, type RuleId } from './types.ts'
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
 
@@ -66,3 +66,24 @@ export function survivorshipCsv(clusters: Cluster[]): string {
 }
 
 export const ruleSummary = (counts: Partial<Record<RuleId, number>>) => Object.entries(counts).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0)).map(([k, v]) => `${RULE_LABEL[k as RuleId]}: ${v}`).join(', ')
+
+/** A dataset as the report CSVs a real org would export (used to rehearse the import path with the samples). */
+export function exportCsvs(ds: Dataset): [string, string][] {
+  const out: [string, string][] = []
+  if (ds.opps.length) {
+    out.push(['opportunities.csv', toCsv([['Opportunity ID', 'Opportunity Name', 'Account Name', 'Opportunity Owner', 'Owner Role', 'Stage', 'Amount', 'Close Date', 'Created Date', 'Last Activity', 'Next Step', 'Forecast Category', 'Probability (%)', '# of Contact Roles'],
+      ...ds.opps.map(o => [o.id, o.name, o.account, o.owner, o.team, o.stage, o.amount, isoDate(o.closeDate), isoDate(o.created), o.lastActivity ? isoDate(o.lastActivity) : '', o.nextStep, o.forecastCategory, o.probability ?? '', o.contactRoles ?? ''])])])
+    const NAME = { stage: 'Stage', amount: 'Amount', closeDate: 'Close Date', forecastCategory: 'Forecast Category' } as const
+    const v = (e: Dataset['history'][number], x: string | number | null) => x === null ? '' : e.field === 'closeDate' ? isoDate(Number(x)) : String(x)
+    out.push(['opportunity-field-history.csv', toCsv([['Opportunity ID', 'Edit Date', 'Field / Event', 'Old Value', 'New Value'], ...ds.history.map(e => [e.oppId, new Date(e.at).toISOString(), NAME[e.field], v(e, e.from), v(e, e.to)])])])
+  }
+  for (const k of ['account', 'contact', 'lead'] as const) {
+    const rows = ds.parties.filter(p => p.kind === k)
+    if (!rows.length) continue
+    const cols = [...new Set(rows.flatMap(r => Object.keys(r.fields)))]
+    const idCol = k === 'account' ? 'Account ID' : k === 'contact' ? 'Contact ID' : 'Lead ID'
+    out.push([`${k}s.csv`, toCsv([[idCol, ...cols], ...rows.map(r => [r.id, ...cols.map(c => r.fields[c] ?? '')])])])
+  }
+  return out
+}
+

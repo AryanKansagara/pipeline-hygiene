@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { closeDateUpdateCsv, mergePlanCsv, ownerEmail, survivorshipCsv } from './actions.ts'
 import { autoMap, detect, findHeaderRow, mergeInto, parseAmount, parseCsv, parseDate, validate, emptyDataset } from './csv.ts'
-import { domainOf, findDuplicates, jaroWinkler, mergeBatches, normName, normPhone, pickMaster, survivorship, trigram, type Cluster } from './dedupe.ts'
+import { clusterKey, domainOf, findDuplicates, reviewed, jaroWinkler, mergeBatches, normName, normPhone, pickMaster, survivorship, trigram, type Cluster } from './dedupe.ts'
 import { accuracy, callAt, checkOpp, closeModel, conversion, datasetAt, fcResolver, hygiene, indexHistory, quarterOf, realisticClose, slippage, stateAt, waterfall } from './pipeline.ts'
 import { generate, sampleConfig, SAMPLE_AS_OF } from './sample.ts'
 import { DAY, defaultConfig, type Dataset, type HistEvent, type Opp, type Party } from './types.ts'
@@ -286,6 +286,17 @@ test('clusters Acme variants, leaves different companies apart', () => {
   assert.deepEqual(r.clusters[0].members.map(m => m.id).sort(), ['1', '2', '3'])
   assert.equal(r.clusters[0].master.id, '1')
   assert.ok(r.clusters[0].confidence >= 0.75)
+})
+
+test('a rejected cluster stays rejected when the master or threshold changes', () => {
+  const parties = [acct('1', 'Acme Inc', { website: 'acme.com' }), acct('2', 'ACME, Inc.', { website: 'acme.com' }), acct('3', 'Initech LLC', { website: 'initech.com' }), acct('4', 'Initech', { website: 'initech.com' })]
+  const first = findDuplicates(parties, 0.75, 'complete')
+  assert.equal(first.clusters.length, 2)
+  const rejected = [clusterKey(first.clusters.find(c => c.members.some(m => m.id === '3'))!)]
+  const again = findDuplicates(parties, 0.7, 'oldest')
+  const kept = reviewed(again.clusters, rejected)
+  assert.equal(kept.length, 1)
+  assert.deepEqual(kept[0].members.map(m => m.id).sort(), ['1', '2'])
 })
 
 test('contacts match on email; different people at the same company do not', () => {

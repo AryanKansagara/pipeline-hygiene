@@ -97,6 +97,8 @@ export interface Config {
   dupThreshold: number
   /** Close-date fixes a manager approved: opp id -> new close date. */
   approved: Record<string, number>
+  /** Clusters a reviewer marked as not duplicates, by clusterKey. */
+  notDup?: string[]
 }
 
 export const DEFAULT_STAGES = ['Prospecting', 'Qualification', 'Needs Analysis', 'Value Proposition', 'Id. Decision Makers', 'Perception Analysis', 'Proposal/Price Quote', 'Negotiation/Review']

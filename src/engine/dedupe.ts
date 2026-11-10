@@ -192,6 +192,12 @@ export function findDuplicates(parties: Party[], threshold = 0.75, rule: MasterR
   return { clusters, compared, records: parties.length, byKind }
 }
 
+/** Stable identity for a cluster (sorted member ids), so review decisions survive re-imports and threshold changes. */
+export const clusterKey = (c: Cluster) => c.members.map(m => m.id).sort().join('+')
+
+/** Drops clusters a reviewer rejected. */
+export const reviewed = (clusters: Cluster[], notDup: string[] = []) => { const s = new Set(notDup); return clusters.filter(c => !s.has(clusterKey(c))) }
+
 // ---------- Master selection and survivorship ----------
 
 export const completeness = (p: Party) => Object.values(p.fields).filter(v => v.trim()).length

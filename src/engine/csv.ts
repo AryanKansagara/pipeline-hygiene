@@ -141,7 +141,7 @@ export const FIELDS: Record<Kind, FieldSpec[]> = {
     F('name', 'Opportunity name', 'str', ['opportunityname', 'name', 'dealname', 'opportunity'], true),
     F('account', 'Account name', 'str', ['accountname', 'account', 'associatedcompany', 'company', 'accountaccountname']),
     F('owner', 'Owner', 'str', ['opportunityowner', 'ownername', 'owner', 'ownerfullname', 'dealowner', 'fullname'], true),
-    F('team', 'Owner role / team', 'str', ['ownerrole', 'ownerrolename', 'role', 'team', 'userrolename', 'ownerteam', 'salesteam', 'region']),
+    F('team', 'Owner role / team', 'str', ['ownerrole', 'ownerrolename', 'owneruserrolename', 'role', 'team', 'userrolename', 'ownerteam', 'salesteam', 'region']),
     F('stage', 'Stage', 'str', ['stage', 'stagename', 'dealstage'], true),
     F('amount', 'Amount', 'num', ['amount', 'amountconverted', 'opportunityamount', 'dealamount', 'tcv', 'acv', 'arr']),
     F('closeDate', 'Close date', 'date', ['closedate', 'expectedclosedate', 'closedateexpected'], true),

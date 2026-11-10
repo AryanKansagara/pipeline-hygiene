@@ -57,7 +57,7 @@ export function WaterfallChart({ wf, realistic, reveal = Infinity, selected, onS
     <svg className="wf" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Commit waterfall for ${wf.q.label}: ${short(wf.start)} at week 1, ${short(wf.end)} today${realistic ? `, ${short(wf.realisticEnd)} after realistic close dates` : ''}`}>
       {ticks.map(t => <g key={t}><line x1={padL} x2={W - 4} y1={y(t)} y2={y(t)} className="wf-grid" /><text x={padL - 8} y={y(t) + 4} textAnchor="end" className="wf-axis">{short(t)}</text></g>)}
       <line x1={padL} x2={W - 4} y1={y(lo)} y2={y(lo)} className="wf-base" />
-      {total(0, wf.start, 'Wk 1', 'var(--accent)')}
+      {total(0, wf.start, 'Start', 'var(--accent)')}
       {steps.map((s, i) => {
         if (!shown(i)) return null
         const x0 = padL + (i + 1) * cw
@@ -95,7 +95,7 @@ export function WaterfallChart({ wf, realistic, reveal = Infinity, selected, onS
           </g>
         )
       })()}
-      {realistic && lastShown === steps.length && total(steps.length + 3, wf.realisticEnd, 'Realistic', 'var(--navy)', 'wf-pop real')}
+      {realistic && lastShown === steps.length && total(steps.length + 3, wf.realisticEnd, 'Realistic', 'var(--c-real)', 'wf-pop real')}
     </svg>
   )
 }

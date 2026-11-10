@@ -30,7 +30,7 @@ const NEXT = ['Send MSA redlines', 'Security review call Tue', 'Pricing sign-off
 const TEAMS = [['Enterprise East', 90000, 120], ['Enterprise West', 85000, 115], ['Mid-Market', 32000, 75], ['Commercial', 12000, 45]] as const
 
 const pick = <T>(r: () => number, l: readonly T[]) => l[Math.floor(r() * l.length)]
-const fcFor = (stageIdx: number) => stageIdx >= 5 ? 'Commit' : stageIdx >= 4 ? 'Best Case' : 'Pipeline'
+const fcFor = (stageIdx: number) => stageIdx >= 4 ? 'Commit' : stageIdx >= 3 ? 'Best Case' : 'Pipeline'
 
 type Kind = 'normal' | 'sandbagger' | 'pusher' | 'optimist'
 
@@ -44,10 +44,10 @@ export function saasOrg(): Dataset {
   const accounts = Array.from({ length: 260 }, (_, i) => `${WORD_A[i % 30]}${WORD_B[Math.floor(i / 30) % 15]} ${INDUSTRY[(i * 7) % 15]}`)
   const opps: Opp[] = []
   const history: HistEvent[] = []
-  const start = Date.UTC(2025, 1, 1)
+  const start = Date.UTC(2024, 7, 1)
   let n = 0
   for (const rep of reps) {
-    const count = 95 + Math.floor(r() * 30)
+    const count = 120 + Math.floor(r() * 40)
     for (let k = 0; k < count; k++) {
       const id = `006Hs00001${String(++n).padStart(5, '0')}AAA`
       const [team, size, cycle] = rep.team
@@ -56,7 +56,7 @@ export function saasOrg(): Dataset {
       const planned = created + Math.round(cycle * (0.7 + r() * 0.6)) * DAY
       const winP = rep.kind === 'sandbagger' ? 0.5 : rep.kind === 'optimist' ? 0.24 : 0.36
       const won = r() < winP
-      const lostAt = won ? 8 : 1 + Math.floor(r() ** 2 * 7)
+      const lostAt = won ? 8 : 1 + Math.floor(r() ** 2 * 4)
       // Close-date pushes.
       const pushN = rep.kind === 'pusher' ? 2 + Math.floor(r() * 4) : rep.kind === 'optimist' ? Math.floor(r() * 3) : r() < 0.55 ? 0 : 1 + Math.floor(r() * 2)
       const closes = [planned]

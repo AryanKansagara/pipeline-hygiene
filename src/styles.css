@@ -32,7 +32,7 @@
   --good: #2e844a; --good-soft: #ebf7e6;
   --bad: #ba0517; --bad-soft: #feded8;
   --warn: #a96404; --warn-soft: #fbf3e0;
-  --c-push: #fe5c4c; --c-lost: #3e3e3c; --c-down: #fcc003; --c-add: #45c65a; --c-real: #0176d3;
+  --c-push: #fe5c4c; --c-lost: #3e3e3c; --c-down: #fcc003; --c-add: #45c65a; --c-real: #032d60;
   --shadow: 0 2px 2px #0000000d, 0 0 0 1px #0000000a;
   --shadow-lg: 0 24px 60px -24px #032d6066;
   --hero-bg: radial-gradient(1200px 520px at 90% -20%, #c3e2ff 0%, transparent 60%), radial-gradient(900px 420px at -10% 0%, #eaf5fe 0%, transparent 60%), linear-gradient(#f4f9ff, #fff);
@@ -419,8 +419,8 @@ svg .hatch-fill { fill: var(--c-push); fill-opacity: .35; stroke: var(--c-push);
 .wf { width: 100%; height: auto; display: block; overflow: visible; }
 .wf-grid { stroke: var(--line-2); }
 .wf-base { stroke: var(--border); }
-.wf-axis, .wf-lab { fill: var(--ink-3); font: 500 11px var(--font-sans); }
-.wf-val { fill: var(--ink); font: 600 11.5px var(--font-sans); }
+.wf-axis, .wf-lab { fill: var(--ink-3); font: 500 12.5px var(--font-sans); }
+.wf-val { fill: var(--ink); font: 600 13px var(--font-sans); }
 .wf-val.neg { fill: var(--c-push); }
 .wf-link { stroke: var(--ink-3); stroke-dasharray: 2 3; stroke-width: 1; }
 .wf-hit { fill: transparent; }

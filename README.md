@@ -2,7 +2,7 @@
 
 Sales ops tooling for Salesforce exports: pipeline hygiene scoring, close-date slippage and forecast accuracy tracking, and duplicate Account / Contact / Lead detection with a safe merge plan. Built for the RevOps or Sales Ops manager who has to defend the forecast and clean the CRM.
 
-Live: https://pipeline-hygiene.vercel.app
+Live: https://pipeline-hygiene-ten.vercel.app
 
 ## The pain
 

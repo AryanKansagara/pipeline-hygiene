@@ -329,7 +329,7 @@ function Duplicates({ project, ds, cfg, setConfig }: TabProps) {
             <select value={cfg.masterRule} onChange={e => setConfig({ masterRule: e.target.value as typeof cfg.masterRule })} aria-label="Master record rule">
               <option value="complete">Master: most complete</option><option value="activity">Master: most recent activity</option><option value="oldest">Master: oldest</option>
             </select>
-            <label className="row gap-sm small">Confidence ≥ <input type="range" min="0.6" max="0.95" step="0.01" value={thr} onChange={e => setThr(Number(e.target.value))} onPointerUp={() => setConfig({ dupThreshold: thr })} onKeyUp={() => setConfig({ dupThreshold: thr })} aria-label="Confidence threshold" /> <b className="num">{Math.round(thr * 100)}%</b></label>
+            <label className="row gap-sm small" style={{ whiteSpace: 'nowrap' }}>Confidence ≥ <input type="range" min="0.6" max="0.95" step="0.01" value={thr} onChange={e => setThr(Number(e.target.value))} onPointerUp={() => setConfig({ dupThreshold: thr })} onKeyUp={() => setConfig({ dupThreshold: thr })} aria-label="Confidence threshold" /> <b className="num">{Math.round(thr * 100)}%</b></label>
           </div>
         </div>
         <div className="clusters">
@@ -432,6 +432,7 @@ function History({ project, ds, cfg, a, update }: TabProps) {
     </Empty>
   )
   const acc = snaps[snaps.length - 1].accuracy
+  const accMax = Math.max(0.2, ...acc.map(q => q.mape ?? 0))
   return (
     <>
       <div className="panel">
@@ -465,7 +466,7 @@ function History({ project, ds, cfg, a, update }: TabProps) {
       <div className="grid-2">
         {acc.length > 0 && <div className="panel">
           <h2>Forecast accuracy over quarters</h2>
-          <div className="qbars">{acc.map(q => <div key={q.q} className="qbar"><span className="qbar-track"><i style={{ height: `${Math.min(100, (q.mape ?? 0) * 200)}%` }} className={(q.bias ?? 0) < 0 ? 'under' : 'over'} /></span><b>{q.mape === null ? '—' : fmtPct(q.mape)}</b><small>{q.q.replace('-', ' ')}</small></div>)}</div>
+          <div className="qbars">{acc.map(q => <div key={q.q} className="qbar"><span className="qbar-track"><i style={{ height: `${((q.mape ?? 0) / accMax) * 100}%` }} className={(q.bias ?? 0) < 0 ? 'under' : 'over'} /></span><b>{q.mape === null ? '—' : fmtPct(q.mape)}</b><small>{q.q.replace('-', ' ')}</small></div>)}</div>
           <p className="muted small">Absolute error of the week-{cfg.forecastWeek} commit per quarter. Blue = called low, red = called high.</p>
         </div>}
         <div className="panel">

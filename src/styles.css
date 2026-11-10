@@ -463,7 +463,7 @@ svg .hatch-fill { fill: var(--c-push); fill-opacity: .35; stroke: var(--c-push);
 .flag.singleThreaded, .flag.stageSkipped, .flag.stageRegressed { background: var(--accent-soft); color: var(--accent-strong); }
 .email { white-space: pre-wrap; font: 13px/1.5 var(--font-mono); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px; max-height: 280px; overflow: auto; }
 .total-row th, .total-row td { background: var(--accent-subtle); font-weight: 600; }
-.risk-row th, .risk-row td { background: color-mix(in srgb, var(--bad-soft) 55%, transparent); }
+.risk-row th { box-shadow: inset 3px 0 0 var(--c-push); }
 
 .funnel { display: grid; gap: 6px; }
 .funnel-row { display: grid; grid-template-columns: 170px 1fr 80px 100px 70px; gap: 10px; align-items: center; }
@@ -519,5 +519,5 @@ svg .hatch-fill { fill: var(--c-push); fill-opacity: .35; stroke: var(--c-push);
 }
 @media print {
   .wf-step, .wf-pop { animation: none; }
-  .risk-row th, .risk-row td { background: #fde8e8; }
 }
+@media (max-width: 720px) { .step-detail li .muted { display: none; } }

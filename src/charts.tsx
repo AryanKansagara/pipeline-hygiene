@@ -127,7 +127,7 @@ export function Dial({ mape, bias, label, size = 220 }: { mape: number | null; b
         <text x="100" y="86" textAnchor="middle" className="dial-num">{mape === null ? '—' : `${Math.round(acc * 100)}%`}</text>
         <text x="100" y="108" textAnchor="middle" className="dial-sub">{label}</text>
       </svg>
-      <figcaption>{bias === null ? 'Not enough closed quarters' : `${bias < 0 ? 'Under-called' : 'Over-called'} by ${Math.abs(Math.round(bias * 100))}% on average`}</figcaption>
+      <figcaption>{bias === null ? 'Not enough closed quarters' : Math.abs(bias) < 0.01 ? 'No bias: misses cancel out' : `${bias < 0 ? 'Under-called' : 'Over-called'} by ${Math.abs(Math.round(bias * 100))}% overall`}</figcaption>
     </figure>
   )
 }

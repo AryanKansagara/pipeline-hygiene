@@ -5,6 +5,7 @@ import { autoMap, detect, findHeaderRow, mergeInto, parseAmount, parseCsv, parse
 import { clusterKey, domainOf, findDuplicates, reviewed, jaroWinkler, mergeBatches, normName, normPhone, pickMaster, survivorship, trigram, type Cluster } from './dedupe.ts'
 import { accuracy, callAt, checkOpp, closeModel, conversion, datasetAt, fcResolver, hygiene, indexHistory, quarterOf, realisticClose, slippage, stateAt, waterfall } from './pipeline.ts'
 import { generate, sampleConfig, SAMPLE_AS_OF } from './sample.ts'
+import { readWorkbook, serialToIso } from './xlsx.ts'
 import { DAY, defaultConfig, type Dataset, type HistEvent, type Opp, type Party } from './types.ts'
 
 const D = (s: string) => Date.parse(s + 'T00:00:00Z')
@@ -401,4 +402,47 @@ test('sample exported as report CSVs re-imports to the same scores, waterfall an
   assert.equal(a.end, b.end)
   assert.equal(a.realisticEnd, b.realisticEnd)
   assert.equal(findDuplicates(back.parties).clusters.length, findDuplicates(ds.parties).clusters.length)
+})
+
+// ---------- XLSX ----------
+
+test('Excel serial dates become ISO, including times and the 1904 date system', () => {
+  assert.equal(serialToIso(46332), '2026-11-06')
+  assert.equal(serialToIso(46332.5), '2026-11-06T12:00:00')
+  assert.equal(serialToIso(46332 - 1462, true), '2026-11-06')
+})
+
+test('formatted report XLSX: title block skipped, date cells read as dates whatever their format', async () => {
+  const XLSX = await import('xlsx')
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Open pipeline'], ['As of 11/6/2026'], [],
+    ['Opportunity ID', 'Opportunity Name', 'Opportunity Owner', 'Stage', 'Amount', 'Close Date', 'Created Date'],
+    ['006A', 'Acme renewal', 'Ann Lee', 'Proposal', 12500, 46356, 46201],
+    ['006B', 'Globex pilot', 'Raj Patel', 'Prospecting', 4000, 46387, 46300],
+    [], ['Grand Totals (2 records)'],
+  ])
+  // A UK-formatted close date and a US-formatted created date: both must come through unambiguous.
+  for (const [a, z] of [['F5', 'dd/mm/yyyy'], ['F6', 'dd/mm/yyyy'], ['G5', 'm/d/yy'], ['G6', 'm/d/yy']]) ws[a].z = z
+  ws.E5.z = ws.E6.z = '"$"#,##0.00'
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Report')
+  const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+  const t = findHeaderRow(await readWorkbook(buf))
+  assert.equal(t.rows[0][0], 'Opportunity ID')
+  assert.equal(t.rows.length, 3)
+  const d = detect(t.rows[0])
+  const p = validate(t, autoMap(t.rows[0], d.kind), d.kind)
+  assert.equal(p.issues.filter(i => i.level === 'error').length, 0)
+  assert.equal(p.opps[0].amount, 12500)
+  assert.equal(p.opps[0].closeDate, D('2026-11-30'))
+  assert.equal(p.opps[0].created, D('2026-06-28'))
+  assert.equal(p.opps[1].closeDate, D('2026-12-31'))
+})
+
+test('legacy .xls workbooks are read too', async () => {
+  const XLSX = await import('xlsx')
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Account ID', 'Account Name', 'Website'], ['001A', 'Acme, Inc.', 'acme.com']]), 'S')
+  const t = await readWorkbook(XLSX.write(wb, { type: 'array', bookType: 'biff8' }) as ArrayBuffer)
+  assert.deepEqual(t.rows[1], ['001A', 'Acme, Inc.', 'acme.com'])
 })

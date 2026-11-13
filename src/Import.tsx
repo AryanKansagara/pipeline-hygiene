@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { exportCsvs } from './engine/actions.ts'
 import { autoMap, detect, FIELDS, findHeaderRow, KIND_LABEL, mergeInto, parseCsv, SOURCE_LABEL, validate, type Kind, type Mapping, type Parsed, type Source, type Table } from './engine/csv.ts'
 import { isoDate, stageOrder } from './engine/pipeline.ts'
+import { readWorkbook } from './engine/xlsx.ts'
 import { RULE_LABEL, RULES, type Config, type Dataset } from './engine/types.ts'
 import { createBlankProject } from './projectData.ts'
 import { putData, saveProject, uuid, type Project } from './store.ts'
@@ -13,11 +14,7 @@ interface Pending { id: string; name: string; kind: Kind; source: Source; table:
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 async function readTable(f: File): Promise<Table> {
-  if (/\.xlsx?$/i.test(f.name)) {
-    const XLSX = await import('xlsx')
-    const wb = XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false })
-    return parseCsv(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { blankrows: true }))
-  }
+  if (/\.xlsx?$/i.test(f.name)) return readWorkbook(await f.arrayBuffer())
   return parseCsv(await f.text())
 }
 

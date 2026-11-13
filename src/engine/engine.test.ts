@@ -492,3 +492,22 @@ test('Data Loader update file leaves out deals that were imported without an ID'
   assert.equal(csv.trim().split('\r\n').length, 2)
   assert.ok(!csv.includes('name:b'))
 })
+
+test('accuracy: a rep who commits and wins nothing is an over-forecaster, not "not enough data"', () => {
+  const opps: Opp[] = []
+  const history: HistEvent[] = []
+  for (const [i, qs] of ['2026-01-01', '2026-04-01', '2026-07-01'].entries()) {
+    const s = D(qs)
+    opps.push(opp({ id: `c${i}`, owner: 'Cy', stage: 'Closed Lost', forecastCategory: 'Omitted', amount: 80, created: s - 40 * DAY, closeDate: s + 80 * DAY }))
+    history.push({ oppId: `c${i}`, at: s - 30 * DAY, field: 'forecastCategory', from: 'Pipeline', to: 'Commit' }, { oppId: `c${i}`, at: s + 80 * DAY, field: 'forecastCategory', from: 'Commit', to: 'Omitted' }, { oppId: `c${i}`, at: s + 80 * DAY, field: 'stage', from: 'Negotiation/Review', to: 'Closed Lost' })
+    if (i === 2) opps.push(opp({ id: `w${i}`, owner: 'Cy', stage: 'Closed Won', forecastCategory: 'Closed', amount: 40, created: s - 40 * DAY, closeDate: s + 85 * DAY }))
+  }
+  const cy = accuracy({ opps, history, parties: [] }, cfg()).owners.find(o => o.owner === 'Cy')!
+  assert.deepEqual(cy.cells.map(c => c.err), [1, 1, 1])
+  assert.equal(cy.mape, 1)
+  assert.equal(cy.bias, 240 / 40 - 1)
+  assert.equal(cy.label, 'Over-forecasting')
+  const none = accuracy({ opps: opps.filter(o => !o.id.startsWith('w')), history, parties: [] }, cfg()).owners.find(o => o.owner === 'Cy')!
+  assert.equal(none.bias, 1)
+  assert.equal(none.label, 'Over-forecasting')
+})

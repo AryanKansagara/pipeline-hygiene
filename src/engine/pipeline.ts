@@ -360,7 +360,8 @@ const summarize = (owner: string, team: string, cells: AccCell[]): OwnerAcc => {
   // Bias is pooled across quarters (total called / total won - 1), which is steadier than averaging small quarters.
   const counted = cells.filter(c => c.err !== null)
   const sumA = counted.reduce((s, c) => s + c.actual, 0)
-  const bias = sumA ? counted.reduce((s, c) => s + c.forecast, 0) / sumA - 1 : null
+  const sumF = counted.reduce((s, c) => s + c.forecast, 0)
+  const bias = sumA ? sumF / sumA - 1 : sumF > 0 ? 1 : null
   const label = bias === null || mape === null ? 'Not enough data' : bias <= -0.3 ? 'Sandbagging' : bias >= 0.3 ? 'Over-forecasting' : mape <= 0.25 ? 'Accurate' : 'Noisy'
   return { owner, team, cells, mape, bias, label }
 }
@@ -368,6 +369,7 @@ const summarize = (owner: string, team: string, cells: AccCell[]): OwnerAcc => {
 /**
  * Commit called at week N of each completed quarter vs closed-won in that quarter.
  * err = (forecast - actual) / actual: negative means sandbagging, positive means over-forecasting.
+ * A commit with nothing won is a 100% miss (capped, since the ratio is undefined) rather than being left out.
  */
 export function accuracy(ds: Dataset, cfg: Config, idx = indexHistory(ds.history), maxQuarters = 6): Accuracy {
   const asOf = asOfDate(ds, cfg)
@@ -400,7 +402,7 @@ export function accuracy(ds: Dataset, cfg: Config, idx = indexHistory(ds.history
       if (commit) { a.forecast += s.amount; tot.forecast += s.amount }
       if (best) { a.best += s.amount; tot.best += s.amount }
     }
-    const cell = (x: { forecast: number; best: number; actual: number }): AccCell => ({ q: qq.key, ...x, err: x.actual > 0 ? (x.forecast - x.actual) / x.actual : null })
+    const cell = (x: { forecast: number; best: number; actual: number }): AccCell => ({ q: qq.key, ...x, err: x.actual > 0 ? (x.forecast - x.actual) / x.actual : x.forecast > 0 ? 1 : null })
     for (const o of owners) per.get(o)!.push(cell(acc.get(o)!))
     team.push(cell(tot))
   }

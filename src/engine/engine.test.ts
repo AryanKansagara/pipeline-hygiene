@@ -446,3 +446,49 @@ test('legacy .xls workbooks are read too', async () => {
   const t = await readWorkbook(XLSX.write(wb, { type: 'array', bookType: 'biff8' }) as ArrayBuffer)
   assert.deepEqual(t.rows[1], ['001A', 'Acme, Inc.', 'acme.com'])
 })
+
+// ---------- Real-world layouts ----------
+// Excerpts written to match the layout of HubSpot's published sample import files
+// (knowledge.hubspot.com/import-and-export/sample-import-files, checked Nov 2026); values are our own.
+
+test('HubSpot deals import file: semicolons, $ amounts, no ID or owner column', () => {
+  const t = findHeaderRow(parseCsv('Deal Name;Deal Stage;Pipeline;Amount;Close Date;Product of Interest;Point of Contact\r\nHarbor Labs;Appointment Scheduled;Sales Pipeline;$3,760;3/16/2026;Paper;Dana Ruiz\r\nKiln & Co;Closed Won;Sales Pipeline;$15,000;11/11/2025;CRM;Sam Ortiz\r\n'))
+  const d = detect(t.rows[0])
+  assert.deepEqual(d, { kind: 'opps', source: 'hubspot' })
+  const p = validate(t, autoMap(t.rows[0], d.kind), d.kind)
+  assert.equal(p.issues.filter(i => i.level === 'error').length, 0)
+  assert.equal(p.opps.length, 2)
+  assert.equal(p.opps[0].id, 'name:harbor labs')
+  assert.equal(p.opps[0].owner, 'Unassigned')
+  assert.equal(p.opps[0].amount, 3760)
+  assert.equal(p.opps[1].closeDate, D('2025-11-11'))
+  assert.ok(p.issues.some(i => /matched by name/.test(i.message)))
+})
+
+test('HubSpot contacts and companies files: "Email Address" and "Phone Number" headers, keyed by email or name', () => {
+  const c = findHeaderRow(parseCsv('First Name,Last Name,Email Address,Favorite Food,Mobile phone number\nDana,Ruiz,dana@harborlabs.com,Tea,+18005550101\n'))
+  const dc = detect(c.rows[0])
+  assert.equal(dc.kind, 'contact')
+  const pc = validate(c, autoMap(c.rows[0], 'contact'), 'contact')
+  assert.equal(pc.parties[0].id, 'name:dana@harborlabs.com')
+  assert.equal(pc.parties[0].phone, '+18005550101')
+  assert.equal(pc.parties[0].fields['Favorite Food'], 'Tea')
+  const a = findHeaderRow(parseCsv('﻿Name,Company domain name,Phone Number,City\nHarbor Labs,harborlabs.com,555-0101,Portland\n'))
+  assert.equal(detect(a.rows[0]).kind, 'account')
+  const pa = validate(a, autoMap(a.rows[0], 'account'), 'account')
+  assert.equal(pa.parties[0].website, 'harborlabs.com')
+  assert.equal(pa.parties[0].id, 'name:harbor labs')
+})
+
+test('Excel serial numbers in a General-format date column are dates, not year 43175', () => {
+  assert.equal(parseDate('43175'), D('2018-03-16'))
+  assert.equal(parseDate('46332.75'), D('2026-11-06') + 18 * 3600_000)
+  assert.ok(Number.isNaN(parseDate('12345')))
+})
+
+test('Data Loader update file leaves out deals that were imported without an ID', () => {
+  const names = new Map([['006A', { name: 'A', old: D('2026-11-01') }], ['name:b', { name: 'B', old: D('2026-11-01') }]])
+  const csv = closeDateUpdateCsv({ '006A': D('2026-12-01'), 'name:b': D('2026-12-01') }, names)
+  assert.equal(csv.trim().split('\r\n').length, 2)
+  assert.ok(!csv.includes('name:b'))
+})

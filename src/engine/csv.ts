@@ -79,6 +79,8 @@ export function parseDate(raw: string, dayFirst = false): number {
   const s = raw.trim()
   if (!s) return NaN
   if (/^\d{13}$/.test(s)) return Math.floor(Number(s) / DAY) * DAY
+  // Excel serial day number (a date cell left in General format, common in spreadsheet templates): 20000..80000 is 1954..2119.
+  if (/^\d{5}(\.\d+)?$/.test(s) && +s >= 20000 && +s <= 80000) return Math.round((+s - 25569) * 86400) * 1000
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*(Z|[+-]\d{2}:?\d{2})?)?$/i)
   if (m) {
     let t = Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0))
@@ -96,6 +98,7 @@ export function parseDate(raw: string, dayFirst = false): number {
     if (m[7]) h = (h % 12) + (/pm/i.test(m[7]) ? 12 : 0)
     return Date.UTC(y, a - 1, b, h, +(m[5] ?? 0), +(m[6] ?? 0))
   }
+  if (/^\d+(\.\d+)?$/.test(s)) return NaN // A bare number is not a date (Date.parse would read it as a year).
   const t = Date.parse(s)
   return Number.isFinite(t) ? t : NaN
 }
@@ -137,10 +140,10 @@ const F = (key: string, label: string, type: FieldSpec['type'], aliases: string[
 /** Aliases are normalised headers: lowercase, letters and digits only. */
 export const FIELDS: Record<Kind, FieldSpec[]> = {
   opps: [
-    F('id', 'Opportunity ID', 'str', ['opportunityid', 'id', 'oppid', 'recordid', 'opportunity18digitid', 'dealid'], true),
+    F('id', 'Opportunity ID', 'str', ['opportunityid', 'id', 'oppid', 'recordid', 'opportunity18digitid', 'dealid']),
     F('name', 'Opportunity name', 'str', ['opportunityname', 'name', 'dealname', 'opportunity'], true),
     F('account', 'Account name', 'str', ['accountname', 'account', 'associatedcompany', 'company', 'accountaccountname']),
-    F('owner', 'Owner', 'str', ['opportunityowner', 'ownername', 'owner', 'ownerfullname', 'dealowner', 'fullname'], true),
+    F('owner', 'Owner', 'str', ['opportunityowner', 'ownername', 'owner', 'ownerfullname', 'dealowner', 'fullname']),
     F('team', 'Owner role / team', 'str', ['ownerrole', 'ownerrolename', 'owneruserrolename', 'role', 'team', 'userrolename', 'ownerteam', 'salesteam', 'region']),
     F('stage', 'Stage', 'str', ['stage', 'stagename', 'dealstage'], true),
     F('amount', 'Amount', 'num', ['amount', 'amountconverted', 'opportunityamount', 'dealamount', 'tcv', 'acv', 'arr']),
@@ -173,7 +176,7 @@ export const FIELDS: Record<Kind, FieldSpec[]> = {
     F('role', 'Role', 'str', ['role', 'contactrole']),
   ],
   account: [
-    F('id', 'Account ID', 'str', ['accountid', 'id', 'recordid', 'companyid'], true),
+    F('id', 'Account ID', 'str', ['accountid', 'id', 'recordid', 'companyid']),
     F('name', 'Account name', 'str', ['accountname', 'name', 'companyname'], true),
     F('website', 'Website', 'str', ['website', 'companydomainname', 'domain', 'url']),
     F('phone', 'Phone', 'str', ['phone', 'accountphone', 'phonenumber']),
@@ -189,13 +192,13 @@ export const FIELDS: Record<Kind, FieldSpec[]> = {
     F('lastActivity', 'Last activity', 'date', ['lastactivity', 'lastactivitydate', 'lastmodifieddate']),
   ],
   contact: [
-    F('id', 'Contact ID', 'str', ['contactid', 'id', 'recordid'], true),
+    F('id', 'Contact ID', 'str', ['contactid', 'id', 'recordid']),
     F('first', 'First name', 'str', ['firstname', 'first']),
     F('last', 'Last name', 'str', ['lastname', 'last']),
     F('name', 'Full name', 'str', ['fullname', 'name', 'contactname', 'contact']),
     F('company', 'Account name', 'str', ['accountname', 'account', 'company']),
     F('email', 'Email', 'str', ['email', 'emailaddress']),
-    F('phone', 'Phone', 'str', ['phone', 'mobile', 'mobilephone', 'businessphone']),
+    F('phone', 'Phone', 'str', ['phone', 'mobile', 'mobilephone', 'businessphone', 'phonenumber', 'mobilephonenumber']),
     F('title', 'Title', 'str', ['title', 'jobtitle']),
     F('street', 'Mailing street', 'str', ['mailingstreet', 'street']),
     F('postal', 'Mailing postal code', 'str', ['mailingpostalcode', 'mailingzippostalcode', 'postalcode', 'zip']),
@@ -204,13 +207,13 @@ export const FIELDS: Record<Kind, FieldSpec[]> = {
     F('lastActivity', 'Last activity', 'date', ['lastactivity', 'lastactivitydate']),
   ],
   lead: [
-    F('id', 'Lead ID', 'str', ['leadid', 'id', 'recordid'], true),
+    F('id', 'Lead ID', 'str', ['leadid', 'id', 'recordid']),
     F('first', 'First name', 'str', ['firstname', 'first']),
     F('last', 'Last name', 'str', ['lastname', 'last']),
     F('name', 'Full name', 'str', ['fullname', 'name', 'leadname']),
     F('company', 'Company', 'str', ['company', 'companyaccount', 'companyname']),
     F('email', 'Email', 'str', ['email', 'emailaddress']),
-    F('phone', 'Phone', 'str', ['phone', 'mobile', 'mobilephone']),
+    F('phone', 'Phone', 'str', ['phone', 'mobile', 'mobilephone', 'phonenumber', 'mobilephonenumber']),
     F('title', 'Title', 'str', ['title']),
     F('status', 'Lead status', 'str', ['leadstatus', 'status']),
     F('source', 'Lead source', 'str', ['leadsource', 'source']),
@@ -237,7 +240,7 @@ export function detect(headers: string[]): Detected {
   if (has('stage', 'stagename', 'tostage') && (has('editdate', 'lastmodified', 'fromstage', 'tostage', 'stageduration') || (has('opportunityid') && has('id') && !has('name')))) return { kind: 'history', source }
   if (has('dealname', 'dealstage') || (has('stage', 'stagename') && has('closedate'))) return { kind: 'opps', source }
   if (has('leadid', 'leadstatus', 'leadsource') || (has('company') && has('lastname') && has('status'))) return { kind: 'lead', source }
-  if (has('contactid', 'mailingstreet') || (has('firstname', 'lastname') && has('email'))) return { kind: 'contact', source }
+  if (has('contactid', 'mailingstreet') || (has('firstname', 'lastname') && has('email', 'emailaddress'))) return { kind: 'contact', source }
   if (has('accountid', 'accountname', 'billingstreet', 'billingcity', 'website', 'companydomainname')) return { kind: 'account', source }
   return { kind: 'opps', source: 'generic' }
 }
@@ -294,7 +297,10 @@ export function validate(t: Table, map: Mapping, kind: Kind): Parsed {
   const specs = FIELDS[kind]
   for (const f of specs) if (f.required && map[f.key] === undefined && !(kind === 'contact' || kind === 'lead') ) issue(1, 'error', `Required column "${f.label}" is not mapped.`)
   if ((kind === 'contact' || kind === 'lead') && map.name === undefined && map.last === undefined) issue(1, 'error', 'Map either "Full name" or "Last name".')
-  if ((kind === 'contact' || kind === 'lead') && map.id === undefined) issue(1, 'error', `Required column "${specs[0].label}" is not mapped.`)
+  // Import templates and default report layouts often have no ID column; fall back to a key built from the name.
+  const keyed = map.id !== undefined
+  if (!keyed && specs[0].key === 'id') issue(1, 'warn', `No ${specs[0].label} column: records are matched by name, so a renamed record re-imports as a new one. Add the ID column to the export for reliable merges.`)
+  const nameKey = (...parts: string[]) => 'name:' + parts.map(x => x.toLowerCase().replace(/\s+/g, ' ').trim()).filter(Boolean).join('|')
   if (out.issues.some(i => i.level === 'error')) { out.skipped = out.total; return out }
   const dateCols = specs.filter(f => f.type === 'date' && map[f.key] !== undefined).map(f => map[f.key])
   const dayFirst = guessDayFirst(t, dateCols)
@@ -322,8 +328,8 @@ export function validate(t: Table, map: Mapping, kind: Kind): Parsed {
     }
     try {
       if (kind === 'opps') {
-        const id = get('id'), stage = get('stage')
-        if (!id) throw new Error('Opportunity ID is empty')
+        const id = keyed ? get('id') : nameKey(get('name'), get('account')), stage = get('stage')
+        if (!id || id === 'name:') throw new Error(keyed ? 'Opportunity ID is empty' : 'Opportunity name is empty')
         if (!stage) throw new Error('Stage is empty')
         const closeDate = dayOf(date('closeDate', true)!)
         const created = date('created')
@@ -373,10 +379,10 @@ export function validate(t: Table, map: Mapping, kind: Kind): Parsed {
         s.add(c)
         out.roles.set(oppId, s)
       } else {
-        const id = get('id')
-        if (!id) throw new Error('ID is empty')
         const name = get('name') || [get('first'), get('last')].filter(Boolean).join(' ')
         if (!name) throw new Error('Name is empty')
+        const id = keyed ? get('id') : get('email') ? nameKey(get('email')) : nameKey(name, get('company'))
+        if (!id) throw new Error('ID is empty')
         if (ids.has(id)) issue(line, 'warn', `Duplicate ID ${id} (also on line ${ids.get(id)}); this row wins.`)
         ids.set(id, line)
         const fields: Record<string, string> = {}

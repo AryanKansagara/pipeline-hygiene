@@ -36,7 +36,8 @@ export function closeDateUpdateCsv(approved: Record<string, number>, names: Map<
   const rows: (string | number)[][] = [['Id', 'CloseDate', 'Name (reference only, do not map)', 'Previous CloseDate (reference only)']]
   for (const [id, d] of Object.entries(approved)) {
     const n = names.get(id)
-    if (!n) continue
+    // Records imported without an ID column cannot be updated by Data Loader.
+    if (!n || id.startsWith('name:')) continue
     rows.push([id, isoDate(d), n.name, isoDate(n.old)])
   }
   return toCsv(rows)

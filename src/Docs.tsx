@@ -85,6 +85,7 @@ export default function Docs() {
 
       <h2 id="hubspot">HubSpot (bonus)</h2>
       <p><b>CRM → Deals</b> → table view → <b>Export</b>, include all properties. Record ID, Deal Name, Deal Stage, Amount, Close Date, Create Date, Deal owner and Associated Company are mapped automatically. HubSpot has no field-history export in the UI, so slippage needs a few weekly snapshots first.</p>
+      <p>Files without an ID column (HubSpot&rsquo;s own <a href="https://knowledge.hubspot.com/import-and-export/sample-import-files" target="_blank" rel="noreferrer">sample import files</a>, or a report without the ID column) still import: records are keyed by name (contacts by email), owner falls back to Unassigned, and Excel dates stored as plain serial numbers are read as dates. Deals keyed by name are left out of the Data Loader update file, because Data Loader needs the real Id.</p>
 
       <h2 id="rules">How scores are computed</h2>
       <p>Each open deal starts at 100 and loses the weight of every rule it breaks (floor 0). Owner, team and org scores are the mean of their open deals. Defaults below; change them per org on Data &amp; rules.</p>

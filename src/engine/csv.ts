@@ -234,7 +234,7 @@ export function detect(headers: string[]): Detected {
   const has = (...k: string[]) => k.some(x => h.has(x))
   const upper = headers.filter(x => x.trim()).every(x => x === x.toUpperCase())
   const apiNames = has('stagename', 'closedate', 'forecastcategoryname', 'ownerid', 'accountid', 'opportunityid') && headers.some(x => /^[A-Za-z]+(\.[A-Za-z]+)?$/.test(x.trim()) && /[a-z][A-Z]|\./.test(x.trim()))
-  const source: Source = has('dealname', 'dealstage', 'recordid', 'associatedcompany') ? 'hubspot' : upper || apiNames ? 'dataloader' : headers.some(x => / /.test(x)) ? 'report' : 'generic'
+  const source: Source = has('dealname', 'dealstage', 'recordid', 'associatedcompany', 'companydomainname') ? 'hubspot' : upper || apiNames ? 'dataloader' : headers.some(x => / /.test(x)) ? 'report' : 'generic'
   if (has('field', 'fieldevent', 'fieldname') && has('oldvalue', 'newvalue')) return { kind: 'fieldHistory', source }
   if (has('contactid') && has('opportunityid') && has('role', 'isprimary', 'contactrole')) return { kind: 'roles', source }
   if (has('stage', 'stagename', 'tostage') && (has('editdate', 'lastmodified', 'fromstage', 'tostage', 'stageduration') || (has('opportunityid') && has('id') && !has('name')))) return { kind: 'history', source }

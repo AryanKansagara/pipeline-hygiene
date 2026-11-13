@@ -474,7 +474,7 @@ test('HubSpot contacts and companies files: "Email Address" and "Phone Number" h
   assert.equal(pc.parties[0].phone, '+18005550101')
   assert.equal(pc.parties[0].fields['Favorite Food'], 'Tea')
   const a = findHeaderRow(parseCsv('﻿Name,Company domain name,Phone Number,City\nHarbor Labs,harborlabs.com,555-0101,Portland\n'))
-  assert.equal(detect(a.rows[0]).kind, 'account')
+  assert.deepEqual(detect(a.rows[0]), { kind: 'account', source: 'hubspot' })
   const pa = validate(a, autoMap(a.rows[0], 'account'), 'account')
   assert.equal(pa.parties[0].website, 'harborlabs.com')
   assert.equal(pa.parties[0].id, 'name:harbor labs')

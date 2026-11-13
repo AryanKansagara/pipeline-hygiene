@@ -20,6 +20,13 @@ Forecast accuracy is rarely measured per rep, close dates go stale by Friday, an
 - Workspace of orgs in IndexedDB with dated snapshots and a compare view. Optional email/password accounts sync across devices.
 - Two synthetic sample orgs (clearly labelled).
 
+## Tested against
+
+- HubSpot's published sample import files (deals, companies, contacts; CSV and XLSX) from https://knowledge.hubspot.com/import-and-export/sample-import-files, checked Nov 2026. Files without an ID column are keyed by name; Excel serial dates in General-format cells are read as dates.
+- Salesforce report layouts (formatted and details-only, CSV and XLSX), Data Loader exports and field history, using faithful excerpts in the tests.
+
+XLSX/XLS files are read with SheetJS 0.20.3 from the official CDN tarball (cdn.sheetjs.com), not the outdated npm `xlsx` 0.18.5.
+
 ## Run locally
 
 ```

@@ -36,4 +36,4 @@ npm run dev
 npm test
 ```
 
-Built by Aryan Kansagara. Independent project, not affiliated with Salesforce.
+Built by Aryan Kansagara.

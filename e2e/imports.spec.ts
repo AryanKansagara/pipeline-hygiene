@@ -72,6 +72,12 @@ for (const type of ['xlsx', 'biff8'] as const) test(`workbook (${type}): real da
   await imported(page, '$1,500')
 })
 
+test('a workbook with separators in its title', async ({ page }) => {
+  await newOrg(page)
+  await importFile(page, 'report.xlsx', sheet([['Pipeline | EMEA | Q4; weekly; all | reps | teams | deals'], [], HEAD, ['006A', 'Sheet | deal', 'Ann', 'Prospecting', 1500, 46027]]), 'opps')
+  await imported(page, 'Sheet | deal')
+})
+
 test('re-import updates by ID instead of duplicating', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'one.csv', HEAD.join(',') + '\nA,One,Ann,Prospecting,10,1/5/2026\n')

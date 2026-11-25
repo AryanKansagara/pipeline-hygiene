@@ -1,6 +1,6 @@
 import { choose, downloaded, expect, historyCsv, importFile, kpis, newOrg, oppsCsv, pending, row, tab, test, toastText } from './fixtures.ts'
 
-// Known bugs, pinned with `test.fail`. The fix for an issue turns its test into a normal one.
+// One test per fixed bug. A new known bug is pinned with `test.fail`; its fix turns the test into a normal one.
 // Everything before the last assertions waits as usual; the last ones are immediate reads of a settled page.
 
 const deal = (id: string, o: { name?: string; stage?: string; amount?: string; close?: string; created?: string; activity?: string; fc?: string; roles?: string } = {}) =>
@@ -98,7 +98,7 @@ test('#10 ISO-8859-1 exports keep their accents', async ({ page }) => {
   expect(await page.locator('table.deals tbody').textContent()).toContain('Société')
 })
 
-test.fail('#11 a shared social host does not make two companies one', async ({ page }) => {
+test('#11 a shared social host does not make two companies one', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'accounts.csv', 'Account ID,Account Name,Website\n001,Blue Bakery,https://www.facebook.com/bluebakery\n002,Zed Plumbing,https://facebook.com/zedplumb\n003,Coda,coda.com\n', 'account')
   await tab(page, 'Duplicates')

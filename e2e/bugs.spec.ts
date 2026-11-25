@@ -154,7 +154,7 @@ test('#17 same-minute changes listed newest first are chained', async ({ page })
   expect(await row(page, /^A\b/).textContent()).toContain('pushed 2× · 61d')
 })
 
-test.fail('#18 a planned activity does not move the as-of date past today', async ({ page }) => {
+test('#18 a planned activity does not move the as-of date past today', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('A', { activity: '3/1/2099' })))
   await tab(page, 'Overview')

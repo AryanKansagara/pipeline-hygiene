@@ -107,33 +107,51 @@ export function findHeaderRow(t: Table): Table {
 
 // ---------- Values ----------
 
-/** Dates as exported by reports (M/D/YYYY, D/M/YYYY when unambiguous), Data Loader (ISO) and HubSpot. Returns UTC midnight ms or NaN. */
+const MONTH = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+const monthOf = (s: string) => s.length < 3 ? 0 : MONTH.findIndex(m => m.startsWith(s.toLowerCase())) + 1
+const WEEKDAY = '(?:(?:sun|mon|tue|tues|wed|wednes|thu|thur|thurs|fri|sat|satur)(?:day)?\\.?,?\\s+)?'
+const US_ZONE: Record<string, number> = { EST: -5, EDT: -4, CST: -6, CDT: -5, MST: -7, MDT: -6, PST: -8, PDT: -7 }
+// Time of day, seconds, AM/PM and zone, all optional.
+const TIME = '(?:(?:,?\\s+|T)(\\d{1,2}):(\\d{2})(?::(\\d{2})(?:[.,]\\d+)?)?\\s*(AM|PM)?\\s*(?:Z|UTC|GMT)?([+-]\\d{2}:?\\d{2}|[ECMP][SD]T)?(?:\\s*\\([^)]*\\))?)?$'
+const YMD = new RegExp('^(\\d{4})([-/.])(\\d{1,2}|[a-z]{3,9})\\2(\\d{1,2})' + TIME, 'i')
+const NUMERIC = new RegExp('^(\\d{1,2})[/.-](\\d{1,2})[/.-](\\d{4}|\\d{2})' + TIME, 'i')
+const MDY = new RegExp('^' + WEEKDAY + '([a-z]{3,9})\\.?[\\s-]*(\\d{1,2})(?:,\\s*|\\s+|-)(\\d{4}|\\d{2})' + TIME, 'i')
+const DMY = new RegExp('^' + WEEKDAY + '(\\d{1,2})[\\s.-]*([a-z]{3,9})\\.?(?:,\\s*|[\\s-]*)(\\d{4}|\\d{2})' + TIME, 'i')
+
+/** UTC ms, or NaN when the calendar or the clock has no such moment. `time` is hour, minute, second, AM/PM, offset. */
+function moment(y: number, mo: number, d: number, time: (string | undefined)[]): number {
+  const [hh, mi, se, half, tz] = time
+  let h = +(hh ?? 0)
+  if (half) h = (h % 12) + (/pm/i.test(half) ? 12 : 0)
+  if (y < 1000 || mo < 1 || mo > 12 || d < 1 || d > new Date(Date.UTC(y, mo, 0)).getUTCDate()) return NaN
+  if (+(mi ?? 0) > 59 || +(se ?? 0) > 59 || h > 24 || (h === 24 && (+(mi ?? 0) || +(se ?? 0)))) return NaN
+  let t = Date.UTC(y, mo - 1, d, h, +(mi ?? 0), +(se ?? 0))
+  if (tz && /[a-z]/i.test(tz)) t -= US_ZONE[tz.toUpperCase()] * 3600000
+  else if (tz) { const sign = tz[0] === '-' ? -1 : 1; const o = tz.slice(1).replace(':', ''); t -= sign * (+o.slice(0, 2) * 60 + +o.slice(2)) * 60000 }
+  return t
+}
+
+/** Dates as exported by reports (M/D/YYYY, D/M/YYYY when unambiguous), Data Loader (ISO), HubSpot, or with a month name. Returns UTC ms (midnight without a time) or NaN. */
 export function parseDate(raw: string, dayFirst = false): number {
   const s = raw.trim()
   if (!s) return NaN
   if (/^\d{13}$/.test(s)) return Math.floor(Number(s) / DAY) * DAY
   // Excel serial day number (a date cell left in General format, common in spreadsheet templates): 20000..80000 is 1954..2119.
   if (/^\d{5}(\.\d+)?$/.test(s) && +s >= 20000 && +s <= 80000) return Math.round((+s - 25569) * 86400) * 1000
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?\s*(Z|[+-]\d{2}:?\d{2})?)?$/i)
-  if (m) {
-    let t = Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0))
-    const tz = m[7]
-    if (tz && tz.toUpperCase() !== 'Z') { const sign = tz[0] === '-' ? -1 : 1; const d = tz.slice(1).replace(':', ''); t -= sign * (+d.slice(0, 2) * 60 + +d.slice(2)) * 60000 }
-    return t
-  }
-  m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?$/i)
+  let m = s.match(YMD)
+  if (m) return moment(+m[1], /^\d/.test(m[3]) ? +m[3] : monthOf(m[3]), +m[4], m.slice(5))
+  m = s.match(NUMERIC)
   if (m) {
     let a = +m[1], b = +m[2]
-    const y = m[3].length === 2 ? 2000 + +m[3] : +m[3]
     if (dayFirst || a > 12) [a, b] = [b, a]
-    if (a > 12 || b > 31) return NaN
-    let h = +(m[4] ?? 0)
-    if (m[7]) h = (h % 12) + (/pm/i.test(m[7]) ? 12 : 0)
-    return Date.UTC(y, a - 1, b, h, +(m[5] ?? 0), +(m[6] ?? 0))
+    return moment(m[3].length === 2 ? 2000 + +m[3] : +m[3], a, b, m.slice(4))
   }
-  if (/^\d+(\.\d+)?$/.test(s)) return NaN // A bare number is not a date (Date.parse would read it as a year).
-  const t = Date.parse(s)
-  return Number.isFinite(t) ? t : NaN
+  const year = (y: string) => y.length === 2 ? +y + (+y < 50 ? 2000 : 1900) : +y
+  m = s.match(MDY)
+  if (m) return moment(year(m[3]), monthOf(m[1]), +m[2], m.slice(4))
+  m = s.match(DMY)
+  if (m) return moment(year(m[3]), monthOf(m[2]), +m[1], m.slice(4))
+  return NaN
 }
 
 export const dayOf = (t: number) => Math.floor(t / DAY) * DAY
@@ -318,8 +336,8 @@ const MAX_ISSUES = 500
 function guessDayFirst(t: Table, cols: number[]): boolean {
   let first = false, second = false
   for (const r of t.rows.slice(1, 500)) for (const c of cols) {
-    const m = (r[c] ?? '').trim().match(/^(\d{1,2})[/.](\d{1,2})[/.]\d{2,4}/)
-    if (!m) continue
+    const m = (r[c] ?? '').trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-]\d{2,4}/)
+    if (!m || Math.min(+m[1], +m[2]) > 12 || Math.max(+m[1], +m[2]) > 31) continue // Not a date either way.
     if (+m[1] > 12) first = true
     if (+m[2] > 12) second = true
   }

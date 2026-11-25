@@ -75,7 +75,7 @@ test('#7 an unclosed quote is reported', async ({ page }) => {
   expect(await pending(page, 'unclosed.csv').textContent()).toMatch(/line 3.*quote/i)
 })
 
-test.fail('#8 an impossible date is an error', async ({ page }) => {
+test('#8 an impossible date is an error', async ({ page }) => {
   await newOrg(page)
   await choose(page, ['dates.csv', oppsCsv(deal('A'), deal('B', { close: '2/31/2026' }), deal('C', { close: 'TBD 12' }), deal('D'))])
   await expect(pending(page, 'dates.csv')).toBeVisible()

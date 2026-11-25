@@ -82,7 +82,7 @@ test('#8 an impossible date is an error', async ({ page }) => {
   expect(await pending(page, 'dates.csv').textContent()).toContain('2 records ready from 4 rows, 2 skipped')
 })
 
-test.fail('#9 a formula in a name cannot run from an exported file', async ({ page }) => {
+test('#9 a formula in a name cannot run from an exported file', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'leads.csv', 'Lead ID,First Name,Last Name,Company,Email,Lead Status\n00QA,=cmd(),Fox,Dune,cy@dune.com,Open\n00QB,=cmd(),Fox,Dune,cy@dune.com,Open\n', 'lead')
   await tab(page, 'Duplicates')

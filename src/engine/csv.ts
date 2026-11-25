@@ -90,9 +90,14 @@ function sniffDelimiter(text: string): string {
   return best
 }
 
+/** A plain number, amount, percentage or phone number, whatever it starts with. */
+const NUMBER = /^[+-]\s?(?:[$€£¥]\s?)?[\d\s.,()/-]*(?:e[+-]?\d+)?%?(?:\s*(?:x|ext\.?|extension)\s*\d+)?$/i
+/** Spreadsheets run cells that start like this as formulas; a leading apostrophe makes them text. */
+const inert = (s: string) => /^[=@\t\r]/.test(s) || (/^[+-]/.test(s) && !NUMBER.test(s)) ? `'${s}` : s
+
 export function toCsv(rows: (string | number)[][]): string {
   return rows.map(r => r.map(v => {
-    const s = typeof v === 'number' ? String(Math.round(v * 100) / 100) : v
+    const s = typeof v === 'number' ? String(Math.round(v * 100) / 100) : inert(v)
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }).join(',')).join('\r\n') + '\r\n'
 }

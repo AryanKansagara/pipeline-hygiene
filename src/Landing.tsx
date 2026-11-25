@@ -11,7 +11,7 @@ function useHero() {
   return useMemo(() => {
     const ds = sampleData('saas')!
     const cfg = sampleConfig('saas')
-    const idx = indexHistory(ds.history)
+    const idx = indexHistory(ds.history, ds.opps)
     const wf = waterfall(ds, cfg, idx)
     const acc = accuracy(ds, cfg, idx)
     return { wf, acc }

@@ -71,11 +71,56 @@ export const hasStageHistory = (ds: Dataset) => ds.history.some(e => e.field ===
 
 export type HistIndex = Map<string, HistEvent[]>
 
-export function indexHistory(history: HistEvent[]): HistIndex {
+/** Changes per deal, oldest first. Reports have minute precision and list newest first, so changes at the same time are ordered by their values. */
+export function indexHistory(history: HistEvent[], opps: Opp[] = []): HistIndex {
   const m: HistIndex = new Map()
   for (const e of history) { const l = m.get(e.oppId); if (l) l.push(e); else m.set(e.oppId, [e]) }
-  for (const l of m.values()) l.sort((a, b) => a.at - b.at)
+  const byId = new Map(opps.map(o => [o.id, o]))
+  for (const [id, l] of m) {
+    l.sort((a, b) => a.at - b.at)
+    if (!l.some((e, i) => i && e.at === l[i - 1].at)) continue
+    for (const f of new Set(l.map(e => e.field))) {
+      const slots = l.flatMap((e, i) => e.field === f ? [i] : [])
+      for (let i = 0; i < slots.length;) {
+        let j = i + 1
+        while (j < slots.length && l[slots[j]].at === l[slots[i]].at) j++
+        if (j - i > 1) {
+          const before = i ? l[slots[i - 1]].to : undefined
+          const after = j === slots.length ? byId.get(id)?.[f] : l[slots[j + 1]]?.at === l[slots[j]].at ? undefined : l[slots[j]].from
+          chain(slots.slice(i, j).map(k => l[k]), before, after).forEach((e, n) => { l[slots[i + n]] = e })
+        }
+        i = j
+      }
+    }
+  }
   return m
+}
+
+type Value = HistEvent['from'] | undefined
+
+/**
+ * Same-time changes of one field, so that each starts where the one before ended and, when several orders do, so that the
+ * whole fits the values before and after. File order when no order links them all.
+ */
+function chain(evs: HistEvent[], before: Value, after: Value): HistEvent[] {
+  const linked = (l: HistEvent[]) => l.every((e, i) => !i || e.from === l[i - 1].to)
+  // A path through every change from a value (Hierholzer).
+  const path = (start: Value): HistEvent[] => {
+    const out = new Map<Value, HistEvent[]>()
+    for (const e of [...evs].reverse()) { const l = out.get(e.from); if (l) l.push(e); else out.set(e.from, [e]) }
+    const stack: { at: Value; e?: HistEvent }[] = [{ at: start }], done: HistEvent[] = []
+    while (stack.length) {
+      const top = stack[stack.length - 1], e = out.get(top.at)?.pop()
+      if (e) stack.push({ at: e.to, e })
+      else { stack.pop(); if (top.e) done.unshift(top.e) }
+    }
+    return done
+  }
+  const extra = (v: Value) => evs.filter(e => e.from === v).length - evs.filter(e => e.to === v).length
+  const starts = [before, after, ...evs.filter(e => extra(e.from) > 0).map(e => e.from)]
+  const orders = [evs, [...evs].reverse(), ...[...new Set(starts)].map(path)].filter(l => l.length === evs.length && linked(l))
+  const fit = (l: HistEvent[]) => Number(l[0].from === before) + Number(l[l.length - 1].to === after)
+  return orders.reduce((best, l) => fit(l) > fit(best) ? l : best, orders[0] ?? evs)
 }
 
 export interface OppState { stage: string; amount: number; closeDate: number; forecastCategory: string }
@@ -192,7 +237,7 @@ function group(rows: OppRow[], key: string, team: string): GroupScore {
 export interface Hygiene { asOf: number; rows: OppRow[]; owners: GroupScore[]; teams: GroupScore[]; total: GroupScore }
 
 /** Scores every open opportunity, then rolls the score up by owner, team and org (mean of deal scores). */
-export function hygiene(ds: Dataset, cfg: Config, idx = indexHistory(ds.history)): Hygiene {
+export function hygiene(ds: Dataset, cfg: Config, idx = indexHistory(ds.history, ds.opps)): Hygiene {
   const asOf = asOfDate(ds, cfg)
   const order = stageOrder(cfg, ds.opps, ds.history)
   const rows = ds.opps.filter(o => !isClosed(o.stage)).map(o => checkOpp(o, idx.get(o.id), cfg, asOf, order))
@@ -291,7 +336,7 @@ export interface WaterStep { label: string; at: number; start: number; pushed: n
 export interface Waterfall { q: Quarter; start: number; steps: WaterStep[]; end: number; projected: { id: string; name: string; owner: string; amount: number; date: number }[]; realisticEnd: number }
 
 /** Week-by-week movement of the quarter's commit (won + open commit), with each change explained by deal. */
-export function waterfall(ds: Dataset, cfg: Config, idx = indexHistory(ds.history), qIn?: Quarter): Waterfall {
+export function waterfall(ds: Dataset, cfg: Config, idx = indexHistory(ds.history, ds.opps), qIn?: Quarter): Waterfall {
   const asOf = asOfDate(ds, cfg)
   const q = qIn ?? quarterOf(asOf, cfg.fiscalStartMonth)
   const fc = fcResolver(ds)
@@ -343,7 +388,7 @@ export function waterfall(ds: Dataset, cfg: Config, idx = indexHistory(ds.histor
 }
 
 /** Weekly snapshots of the current quarter: what the call looked like each week. */
-export function weeklyCalls(ds: Dataset, cfg: Config, idx = indexHistory(ds.history)) {
+export function weeklyCalls(ds: Dataset, cfg: Config, idx = indexHistory(ds.history, ds.opps)) {
   const asOf = asOfDate(ds, cfg)
   const q = quarterOf(asOf, cfg.fiscalStartMonth)
   const fc = fcResolver(ds)
@@ -379,7 +424,7 @@ const summarize = (owner: string, team: string, cells: AccCell[]): OwnerAcc => {
  * A commit with nothing won is a 100% miss (capped, since the ratio is undefined) rather than being left out.
  * A quarter whose week N lies before the history starts is left out: the call cannot be rebuilt, and today's values are not it.
  */
-export function accuracy(ds: Dataset, cfg: Config, idx = indexHistory(ds.history), maxQuarters = 6): Accuracy {
+export function accuracy(ds: Dataset, cfg: Config, idx = indexHistory(ds.history, ds.opps), maxQuarters = 6): Accuracy {
   const asOf = asOfDate(ds, cfg)
   const fc = fcResolver(ds)
   const firstData = ds.opps.reduce((m, o) => Math.min(m, o.created), Infinity)
@@ -428,7 +473,7 @@ export function accuracy(ds: Dataset, cfg: Config, idx = indexHistory(ds.history
 export interface StageStat { stage: string; entered: number; advanced: number; lost: number; open: number; conversion: number | null; avgDays: number | null }
 export interface Velocity { stages: StageStat[]; winRate: number | null; avgWon: number; cycleDays: number | null; openCount: number; perDay: number | null }
 
-export function conversion(ds: Dataset, cfg: Config, idx = indexHistory(ds.history)): Velocity {
+export function conversion(ds: Dataset, cfg: Config, idx = indexHistory(ds.history, ds.opps)): Velocity {
   const order = stageOrder(cfg, ds.opps, ds.history)
   const stats = order.map(stage => ({ stage, entered: 0, advanced: 0, lost: 0, open: 0, days: [] as number[] }))
   const asOf = asOfDate(ds, cfg)
@@ -487,7 +532,7 @@ export interface Snapshot {
 }
 
 export function snapshot(ds: Dataset, cfg: Config, id: string, dupClusters: number): Snapshot {
-  const idx = indexHistory(ds.history)
+  const idx = indexHistory(ds.history, ds.opps)
   const h = hygiene(ds, cfg, idx)
   const w = waterfall(ds, cfg, idx)
   const fc = fcResolver(ds)
@@ -509,7 +554,7 @@ export function snapshot(ds: Dataset, cfg: Config, id: string, dupClusters: numb
  * The org as it looked at time t, rebuilt from field history: deals created later are dropped and stage, amount,
  * close date and category are rewound. Activity dates and next steps cannot be rewound, so they are capped at t.
  */
-export function datasetAt(ds: Dataset, t: number, idx = indexHistory(ds.history)): Dataset {
+export function datasetAt(ds: Dataset, t: number, idx = indexHistory(ds.history, ds.opps)): Dataset {
   const opps: Opp[] = []
   for (const o of ds.opps) {
     const s = stateAt(o, idx.get(o.id), t)

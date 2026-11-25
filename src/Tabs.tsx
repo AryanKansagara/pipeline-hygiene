@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { activeApprovals, canMerge, closeDateUpdateCsv, mailto, mergePlanCsv, ownerEmail, ruleSummary, survivorshipCsv } from './engine/actions.ts'
 import { clusterKey, findDuplicates, reviewed, survivorship, mergeBatches, type Cluster } from './engine/dedupe.ts'
-import { hasStageHistory, isoDate, realisticClose, weeklyCalls, type OppRow, type Snapshot } from './engine/pipeline.ts'
+import { hasStageHistory, isoDate, realisticClose, snapClean, snapScore, weeklyCalls, type OppRow, type Snapshot } from './engine/pipeline.ts'
 import { DAY, RULE_LABEL, RULES, type PartyKind, type RuleId } from './engine/types.ts'
 import { Dial, ScoreBadge, short, Spark, StepDetail, WaterfallChart, WaterLegend } from './charts.tsx'
 import type { Tab, TabProps } from './Project.tsx'
@@ -39,7 +39,7 @@ function Overview({ project, ds, a }: TabProps) {
     <>
       {!hasStageHistory(ds) && <NoHistory />}
       <div className="kpis">
-        <div className="kpi"><small>Pipeline hygiene</small><b>{h.total.score}<span className="unit">/100</span></b><p>{fmtPct(h.total.clean)} of open deals are clean</p></div>
+        <div className="kpi"><small>Pipeline hygiene</small>{h.total.open ? <><b>{h.total.score}<span className="unit">/100</span></b><p>{fmtPct(h.total.clean)} of open deals are clean</p></> : <><b>—</b><p>No open deals to score</p></>}</div>
         <div className="kpi"><small>Open pipeline</small><b>{short(h.total.amount)}</b><p>{short(h.total.flaggedAmount)} sits on flagged deals</p></div>
         <div className="kpi"><small>{wf.q.label} commit today</small><b>{short(wf.end)}</b><p>Realistic: <strong>{short(wf.realisticEnd)}</strong> ({wf.projected.length} deals likely to slip)</p></div>
         <div className="kpi"><small>Forecast accuracy (week {acc.week})</small><b>{acc.team.mape === null ? '—' : fmtPct(Math.max(0, 1 - acc.team.mape))}</b><p>{acc.team.bias === null ? 'Needs a closed quarter with history' : `MAPE ${fmtPct(acc.team.mape ?? 0)}, bias ${signed(acc.team.bias, v => fmtPct(v))}`}</p></div>
@@ -144,7 +144,7 @@ function Hygiene({ project, ds, cfg, a, setConfig }: TabProps) {
             <input type="search" placeholder="Search deals" value={find} onChange={e => setFind(e.target.value)} aria-label="Search deals" style={{ width: 180 }} />
           </div>
         </div>
-        {rows.length === 0 ? <p className="muted">Nothing flagged for this filter. Clean pipeline.</p> : (
+        {rows.length === 0 ? <p className="muted">{a.h.rows.length ? 'Nothing flagged for this filter. Clean pipeline.' : 'No open deals to score.'}</p> : (
           <div className="table-wrap"><table className="deals">
             <thead><tr><th>Deal</th><th>Owner</th><th>Stage</th><th className="num">Amount</th><th>Close date</th><th>Flags</th><th className="num">Score</th><th>Close-date fix</th></tr></thead>
             <tbody>{rows.slice(0, limit).map(r => {
@@ -396,9 +396,9 @@ function Duplicates({ project, ds, cfg, setConfig }: TabProps) {
 
 // ---------- History ----------
 
-const METRICS: [string, (s: Snapshot) => number, (n: number) => string, boolean?][] = [
-  ['Hygiene score', s => s.score, n => fmtN(n)],
-  ['Clean deals', s => s.clean, n => fmtPct(n)],
+const METRICS: [string, (s: Snapshot) => number | null, (n: number) => string, boolean?][] = [
+  ['Hygiene score', snapScore, n => fmtN(n)],
+  ['Clean deals', snapClean, n => fmtPct(n)],
   ['Open deals', s => s.open, n => fmtN(n), true],
   ['Open pipeline', s => s.openAmount, short],
   ['Amount on flagged deals', s => s.flaggedAmount, short, true],
@@ -445,8 +445,8 @@ function History({ project, ds, cfg, a, update }: TabProps) {
         <div className="panel-head"><h2>Trend</h2>{a.hasOpps && <button type="button" className="btn outline sm" onClick={rebuild}>Rebuild 8 weeks from history</button>}</div>
         <div className="trend-grid">
           {METRICS.slice(0, 8).map(([l, f, fmt, inv]) => {
-            const v = snaps.map(f)
-            return <div key={l} className="trend"><small>{l}</small><b>{fmt(v[v.length - 1])}</b><Spark values={v} invert={inv} /></div>
+            const v = snaps.map(f), now = v[v.length - 1]
+            return <div key={l} className="trend"><small>{l}</small><b>{now === null ? '—' : fmt(now)}</b><Spark values={v} invert={inv} /></div>
           })}
         </div>
       </div>
@@ -462,7 +462,7 @@ function History({ project, ds, cfg, a, update }: TabProps) {
         <div className="table-wrap"><table>
           <thead><tr><th>Metric</th><th className="num">{s0.label}</th><th className="num">{s1.label}</th><th className="num">Change</th></tr></thead>
           <tbody>
-            {METRICS.map(([l, f, fmt, inv]) => { const d = f(s1) - f(s0); const good = inv ? d < 0 : d > 0; return <tr key={l}><th scope="row">{l}</th><td className="num">{fmt(f(s0))}</td><td className="num">{fmt(f(s1))}</td><td className={`num ${d === 0 ? 'muted' : good ? 'good-text' : 'error'}`}>{d === 0 ? '—' : signed(d, fmt)}</td></tr> })}
+            {METRICS.map(([l, f, fmt, inv]) => { const x = f(s0), y = f(s1), d = x === null || y === null ? 0 : y - x; const good = inv ? d < 0 : d > 0; return <tr key={l}><th scope="row">{l}</th><td className="num">{x === null ? '—' : fmt(x)}</td><td className="num">{y === null ? '—' : fmt(y)}</td><td className={`num ${d === 0 ? 'muted' : good ? 'good-text' : 'error'}`}>{d === 0 ? '—' : signed(d, fmt)}</td></tr> })}
             {RULES.filter(r => s0.counts[r] || s1.counts[r]).map(r => { const d = (s1.counts[r] ?? 0) - (s0.counts[r] ?? 0); return <tr key={r}><th scope="row" className="muted">{RULE_LABEL[r]}</th><td className="num">{s0.counts[r] ?? 0}</td><td className="num">{s1.counts[r] ?? 0}</td><td className={`num ${d === 0 ? 'muted' : d < 0 ? 'good-text' : 'error'}`}>{d === 0 ? '—' : signed(d, n => fmtN(n))}</td></tr> })}
           </tbody>
         </table></div>
@@ -477,7 +477,7 @@ function History({ project, ds, cfg, a, update }: TabProps) {
         </div>}
         <div className="panel">
           <h2>Snapshots</h2>
-          <ul className="snap-list">{[...snaps].reverse().map(s => <li key={s.id}><span><b>{s.label}</b> <span className="muted small">score {s.score} · commit {short(s.commit)}</span></span><button type="button" className="btn danger-ghost sm" onClick={async () => { if (await ask(`Delete ${s.label}?`, 'Removes this snapshot. You can undo for a few seconds.', 'Delete')) remove(s) }}>Delete</button></li>)}</ul>
+          <ul className="snap-list">{[...snaps].reverse().map(s => <li key={s.id}><span><b>{s.label}</b> <span className="muted small">score {snapScore(s) ?? '—'} · commit {short(s.commit)}</span></span><button type="button" className="btn danger-ghost sm" onClick={async () => { if (await ask(`Delete ${s.label}?`, 'Removes this snapshot. You can undo for a few seconds.', 'Delete')) remove(s) }}>Delete</button></li>)}</ul>
         </div>
       </div>
     </>

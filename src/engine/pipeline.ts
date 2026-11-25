@@ -226,6 +226,7 @@ export function checkOpp(o: Opp, evs: HistEvent[] | undefined, cfg: Config, asOf
   return { opp: o, flags, score, daysInStage, daysSinceActivity, slip, stageMoves: moves }
 }
 
+/** Without open deals nothing was scored: score and clean are NaN, shown as a dash. */
 export interface GroupScore { key: string; team: string; open: number; amount: number; score: number; clean: number; flaggedAmount: number; counts: Partial<Record<RuleId, number>> }
 
 function group(rows: OppRow[], key: string, team: string): GroupScore {
@@ -234,8 +235,8 @@ function group(rows: OppRow[], key: string, team: string): GroupScore {
   return {
     key, team, open: rows.length,
     amount: rows.reduce((s, r) => s + r.opp.amount, 0),
-    score: rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : 100,
-    clean: rows.length ? rows.filter(r => !r.flags.length).length / rows.length : 1,
+    score: rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : NaN,
+    clean: rows.length ? rows.filter(r => !r.flags.length).length / rows.length : NaN,
     flaggedAmount: rows.filter(r => r.flags.length).reduce((s, r) => s + r.opp.amount, 0),
     counts,
   }
@@ -523,8 +524,9 @@ export interface Snapshot {
   asOf: number
   at: number
   quarter: string
-  score: number
-  clean: number
+  /** Null when there were no open deals; snapshots saved before that was recorded have 100 and 1. */
+  score: number | null
+  clean: number | null
   open: number
   openAmount: number
   flaggedAmount: number
@@ -538,6 +540,10 @@ export interface Snapshot {
   dupClusters: number
 }
 
+/** Score and clean share of a snapshot, missing when nothing was scored. */
+export const snapScore = (s: Snapshot) => s.open ? s.score : null
+export const snapClean = (s: Snapshot) => s.open ? s.clean : null
+
 export function snapshot(ds: Dataset, cfg: Config, id: string, dupClusters: number): Snapshot {
   const idx = indexHistory(ds.history, ds.opps)
   const h = hygiene(ds, cfg, idx)
@@ -548,7 +554,7 @@ export function snapshot(ds: Dataset, cfg: Config, id: string, dupClusters: numb
   return {
     id, label: `Week of ${new Date(h.asOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`,
     asOf: h.asOf, at: Date.now(), quarter: w.q.key,
-    score: h.total.score, clean: h.total.clean, open: h.total.open, openAmount: h.total.amount, flaggedAmount: h.total.flaggedAmount,
+    score: h.total.open ? h.total.score : null, clean: h.total.open ? h.total.clean : null, open: h.total.open, openAmount: h.total.amount, flaggedAmount: h.total.flaggedAmount,
     commit: commitTotal(c), best: bestTotal(c), won: c.won, realisticCommit: w.realisticEnd,
     counts: h.total.counts,
     owners: h.owners.map(o => ({ owner: o.key, score: o.score, open: o.open, flags: Object.values(o.counts).reduce((a, b) => a + (b ?? 0), 0) })),

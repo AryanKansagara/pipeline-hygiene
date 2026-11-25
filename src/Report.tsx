@@ -45,7 +45,7 @@ export default function Report({ id }: { id: string }) {
       <div className="kpis">
         <div className="kpi"><small>Commit called</small><b>{short(wf.end)}</b><p>{signed(wf.end - wf.start, short)} since week 1</p></div>
         <div className="kpi"><small>Realistic commit</small><b>{short(wf.realisticEnd)}</b><p>{wf.projected.length} deals likely to slip</p></div>
-        <div className="kpi"><small>Hygiene</small><b>{h.total.score}/100</b><p>{fmtPct(h.total.clean)} of deals clean</p></div>
+        <div className="kpi"><small>Hygiene</small>{h.total.open ? <><b>{h.total.score}/100</b><p>{fmtPct(h.total.clean)} of deals clean</p></> : <><b>—</b><p>No open deals to score</p></>}</div>
         <div className="kpi"><small>Accuracy at week {acc.week}</small><b>{acc.team.mape === null ? '—' : fmtPct(Math.max(0, 1 - acc.team.mape))}</b><p>{acc.team.label}</p></div>
       </div>
 

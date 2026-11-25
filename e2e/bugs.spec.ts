@@ -138,11 +138,28 @@ test('#15 lost to a competitor is not won', async ({ page }) => {
   expect((await kpis(page))['Q4 2026 commit today']).toContain('$50k | ')
 })
 
-test.fail('#16 no open deals is not a perfect score', async ({ page }) => {
+test('#16 no open deals is not a perfect score', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('A', { close: '10/20/2026', stage: 'Closed Lost', fc: 'Omitted' })))
   await tab(page, 'Overview')
   expect((await kpis(page))['Pipeline hygiene']).not.toContain('100')
+  expect((await kpis(page))['Pipeline hygiene']).toBe('— | No open deals to score')
+})
+
+test('#16 a snapshot without open deals has no score to compare', async ({ page }) => {
+  await newOrg(page)
+  await importFile(page, 'opps.csv', oppsCsv(deal('A')))
+  await page.getByRole('button', { name: 'Save snapshot' }).click()
+  await importFile(page, 'closed.csv', oppsCsv(deal('A', { close: '11/10/2026', stage: 'Closed Lost', fc: 'Omitted', activity: '11/10/2026' })))
+  await page.getByRole('button', { name: 'Save snapshot' }).click()
+  await tab(page, 'Hygiene')
+  await expect(page.getByText('No open deals to score.')).toBeVisible()
+  await tab(page, 'History')
+  await expect(row(page, 'Hygiene score').getByRole('cell')).toHaveText([/^\d+$/, '—', '—'])
+  await expect(row(page, 'Clean deals').getByRole('cell')).toHaveText([/^\d+%$/, '—', '—'])
+  await expect(page.locator('.snap-list li').first()).toContainText('score —')
+  await page.getByRole('link', { name: 'Forecast-call pack' }).click()
+  await expect(page.locator('.kpi').filter({ hasText: 'Hygiene' })).toContainText('No open deals to score')
 })
 
 test('#17 same-minute changes listed newest first are chained', async ({ page }) => {

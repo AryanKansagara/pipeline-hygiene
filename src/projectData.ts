@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { emptyDataset } from './engine/csv.ts'
 import { findDuplicates } from './engine/dedupe.ts'
-import { accuracy, closeModel, conversion, datasetAt, hygiene, indexHistory, snapshot, waterfall } from './engine/pipeline.ts'
+import { accuracy, closeModel, conversion, datasetAt, endOfDay, hygiene, indexHistory, snapshot, waterfall } from './engine/pipeline.ts'
 import { SAMPLES, generate, sampleConfig } from './engine/sample.ts'
 import { DAY, type Config, type Dataset } from './engine/types.ts'
 import { blankConfig, getData, getProjects, saveProject, useProjects, uuid, type Project } from './store.ts'
@@ -20,7 +20,7 @@ export function backfill(ds: Dataset, cfg: Config, weeks: number, dupClusters: n
   const out = []
   for (let w = weeks; w >= 0; w--) {
     const t = asOf - w * 7 * DAY
-    const past = w ? datasetAt(ds, t, idx) : ds
+    const past = w ? datasetAt(ds, endOfDay(t), idx) : ds
     out.push(snapshot(past, { ...cfg, asOf: t }, uuid(), dupClusters))
   }
   return out

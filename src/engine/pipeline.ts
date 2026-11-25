@@ -86,10 +86,10 @@ export function stateAt(o: Opp, evs: HistEvent[] | undefined, t: number): OppSta
   const s: OppState = { stage: o.stage, amount: o.amount, closeDate: o.closeDate, forecastCategory: o.forecastCategory }
   if (evs) for (let i = evs.length - 1; i >= 0 && evs[i].at > t; i--) {
     const e = evs[i]
+    if (e.field === 'amount') { s.amount = Number(e.from ?? 0); continue } // A blank amount is 0, as it is on import.
     if (e.from === null || e.from === '') continue
     if (e.field === 'stage') s.stage = String(e.from)
     else if (e.field === 'forecastCategory') s.forecastCategory = String(e.from)
-    else if (e.field === 'amount') s.amount = Number(e.from)
     else s.closeDate = Number(e.from)
   }
   return s

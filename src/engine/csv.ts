@@ -370,7 +370,7 @@ export function validate(t: Table, map: Mapping, kind: Kind): Parsed {
   const ids = new Map<string, number>()
   const headers = t.rows[0]
   // Opportunity History rows are full states; diff consecutive rows per opportunity into field changes.
-  const states = new Map<string, { at: number; line: number; v: Partial<Record<HistField, string | number>> }[]>()
+  const states = new Map<string, { at: number; line: number; v: Partial<Record<HistField, string | number | null>> }[]>()
 
   for (let r = 1; r < t.rows.length; r++) {
     const row = t.rows[r], line = t.lines[r]
@@ -414,9 +414,9 @@ export function validate(t: Table, map: Mapping, kind: Kind): Parsed {
         const oppId = get('oppId')
         if (!oppId) throw new Error('Opportunity ID is empty')
         const at = date('at', true)!
-        const v: Partial<Record<HistField, string | number>> = {}
+        const v: Partial<Record<HistField, string | number | null>> = {}
         if (get('stage')) v.stage = get('stage')
-        const a = num('amount'); if (a !== undefined) v.amount = a
+        if (map.amount !== undefined) v.amount = num('amount') ?? null
         const c = date('closeDate'); if (c !== undefined) v.closeDate = dayOf(c)
         if (get('forecastCategory')) v.forecastCategory = normFc(get('forecastCategory'))
         const l = states.get(oppId) ?? []

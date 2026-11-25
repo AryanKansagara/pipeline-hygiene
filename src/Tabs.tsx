@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { activeApprovals, closeDateUpdateCsv, mailto, mergePlanCsv, ownerEmail, ruleSummary, survivorshipCsv } from './engine/actions.ts'
+import { activeApprovals, canMerge, closeDateUpdateCsv, mailto, mergePlanCsv, ownerEmail, ruleSummary, survivorshipCsv } from './engine/actions.ts'
 import { clusterKey, findDuplicates, reviewed, survivorship, mergeBatches, type Cluster } from './engine/dedupe.ts'
 import { hasStageHistory, isoDate, realisticClose, weeklyCalls, type OppRow, type Snapshot } from './engine/pipeline.ts'
 import { DAY, RULE_LABEL, RULES, type PartyKind, type RuleId } from './engine/types.ts'
@@ -308,6 +308,7 @@ function Duplicates({ project, ds, cfg, setConfig }: TabProps) {
   const shown = kept.filter(c => !kind || c.kind === kind)
   const dupRecords = kept.reduce((s, c) => s + c.members.length - 1, 0)
   const merges = kept.reduce((s, c) => s + mergeBatches(c).length, 0)
+  const unmergeable = kept.filter(c => !canMerge(c)).length
   const reject = (c: Cluster) => { const before = notDup; setConfig({ notDup: [...notDup, clusterKey(c)] }); toast(`Marked ${c.master.name} cluster as not duplicates`, { undo: () => setConfig({ notDup: before }) }) }
 
   if (!ds.parties.length) return (
@@ -371,8 +372,9 @@ function Duplicates({ project, ds, cfg, setConfig }: TabProps) {
         <div className="panel">
           <h2>Merge plan</h2>
           <p className="small">One row per merge call: the master Id plus up to two duplicate Ids, because Salesforce merges at most three records at a time. Clusters of four or more become several merges into the same master. The survivorship file lists the field values to copy onto the master <em>before</em> merging, so blanks are filled and nothing useful is lost.</p>
+          {unmergeable > 0 && <p className="small"><b>{unmergeable === 1 ? '1 cluster is' : `${fmtN(unmergeable)} clusters are`} left out of the merge plan</b>: a record in {unmergeable === 1 ? 'it' : 'each'} was imported without an ID column, and a merge needs the real Id of every record. Clear the imported data and import it again with the ID column.</p>}
           <div className="row gap wrap">
-            <button type="button" className="btn primary" disabled={!kept.length} onClick={() => download(`merge-plan-${slug(project.name)}.csv`, mergePlanCsv(kept))}>Download merge plan CSV</button>
+            <button type="button" className="btn primary" disabled={kept.length === unmergeable} onClick={() => download(`merge-plan-${slug(project.name)}.csv`, mergePlanCsv(kept))}>Download merge plan CSV</button>
             <button type="button" className="btn outline" disabled={!kept.length} onClick={() => download(`survivorship-${slug(project.name)}.csv`, survivorshipCsv(kept))}>Survivorship preview CSV</button>
           </div>
         </div>

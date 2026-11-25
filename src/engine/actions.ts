@@ -54,10 +54,13 @@ export function closeDateUpdateCsv(approved: Record<string, number>, names: Map<
   return toCsv(rows)
 }
 
-/** One row per merge call: master plus up to two duplicates (the Salesforce merge limit). */
+/** Salesforce merges by ID, so every record of the cluster needs one: records imported without an ID column are keyed by name. */
+export const canMerge = (c: Cluster) => c.members.every(m => !m.id.startsWith('name:'))
+
+/** One row per merge call: master plus up to two duplicates (the Salesforce merge limit). Clusters that cannot be merged are left out. */
 export function mergePlanCsv(clusters: Cluster[]): string {
   const rows: (string | number)[][] = [['Object', 'Cluster', 'Step', 'MasterId', 'MasterName', 'DuplicateId1', 'DuplicateName1', 'DuplicateId2', 'DuplicateName2', 'Confidence', 'Reasons']]
-  for (const c of clusters) {
+  for (const c of clusters.filter(canMerge)) {
     const name = (id: string) => c.members.find(m => m.id === id)?.name ?? ''
     const reasons = [...new Set(c.links.flatMap(l => l.reasons))].join('; ')
     const obj = c.kind === 'account' ? 'Account' : c.kind === 'contact' ? 'Contact' : 'Lead'

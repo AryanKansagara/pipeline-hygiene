@@ -54,21 +54,21 @@ test.fail('#6 commit today includes the changes made today', async ({ page }) =>
   expect((await kpis(page))['Q4 2026 commit today']).toContain('$100k | ')
 })
 
-test.fail('#7 sparse last rows are kept', async ({ page }) => {
+test('#7 sparse last rows are kept', async ({ page }) => {
   await newOrg(page)
   await choose(page, ['accounts.csv', 'Account ID,Account Name,Website\n001,Acme,acme.com\n002,Beta,\n003,Gamma,\n'])
   await expect(pending(page, 'accounts.csv')).toBeVisible()
   expect(await pending(page, 'accounts.csv').textContent()).toContain('3 records ready from 3 rows')
 })
 
-test.fail('#7 a cut-off last row is reported', async ({ page }) => {
+test('#7 a cut-off last row is reported', async ({ page }) => {
   await newOrg(page)
   await choose(page, ['cut.csv', oppsCsv(deal('A')) + 'B,Tw'])
   await expect(pending(page, 'cut.csv')).toBeVisible()
   expect(await pending(page, 'cut.csv').textContent()).toContain('1 records ready from 2 rows, 1 skipped')
 })
 
-test.fail('#7 an unclosed quote is reported', async ({ page }) => {
+test('#7 an unclosed quote is reported', async ({ page }) => {
   await newOrg(page)
   await choose(page, ['unclosed.csv', oppsCsv(deal('A'), deal('B').replace('Call', '"Call'), deal('C'))])
   await expect(pending(page, 'unclosed.csv')).toBeVisible()

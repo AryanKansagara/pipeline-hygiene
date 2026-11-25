@@ -15,13 +15,21 @@ export function normName(s: string): string {
 
 const FREEMAIL = new Set(['gmail.com', 'googlemail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com', 'aol.com', 'icloud.com', 'me.com', 'proton.me', 'protonmail.com', 'gmx.com', 'mail.com', 'yandex.com'])
 
-/** Registrable-ish domain from a URL, bare domain or email. Freemail domains return '' because they identify nobody. */
+// Sites where many companies have a page under one host, also behind a mobile or country subdomain (m., uk., en-gb.).
+const PROFILE_HOSTS = new Set(['facebook.com', 'fb.com', 'fb.me', 'linkedin.com', 'lnkd.in', 'instagram.com', 'x.com', 'twitter.com', 'threads.net', 'threads.com', 'youtube.com', 'youtu.be', 'tiktok.com', 'pinterest.com', 'medium.com', 'github.com', 'vimeo.com', 'yelp.com', 'etsy.com', 'tripadvisor.com', 'xing.com', 'crunchbase.com', 'linktr.ee', 'wa.me', 't.me', 'g.page', 'goo.gl', 'sites.google.com', 'maps.google.com'])
+const PROFILE_SUB = /^(?:m|mobile|web|business|[a-z]{2}(?:-[a-z]{2})?)\./
+
+/** Registrable-ish domain from a URL, bare domain or email. Freemail domains and profile hosts return '' because they identify nobody. */
 export function domainOf(s?: string): string {
   if (!s) return ''
   let d = s.trim().toLowerCase()
-  if (d.includes('@')) d = d.split('@').pop()!
+  // An email, not a profile such as tiktok.com/@name.
+  const email = d.replace(/^[a-z]+:\/\//, '').split(/[/?#]/)[0].includes('@')
+  if (email) d = d.split('@').pop()!
   d = d.replace(/^[a-z]+:\/\//, '').replace(/^www\d?\./, '').split(/[/?#:\s]/)[0]
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) || FREEMAIL.has(d)) return ''
+  // Someone at facebook.com works there; a website on facebook.com is a page.
+  if (!email && (PROFILE_HOSTS.has(d) || PROFILE_HOSTS.has(d.replace(PROFILE_SUB, '')))) return ''
   return d
 }
 

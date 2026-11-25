@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { exportCsvs } from './engine/actions.ts'
-import { autoMap, detect, FIELDS, findHeaderRow, KIND_LABEL, mergeInto, parseCsv, SOURCE_LABEL, validate, type Kind, type Mapping, type Parsed, type Source, type Table } from './engine/csv.ts'
+import { autoMap, decodeText, detect, FIELDS, findHeaderRow, KIND_LABEL, mergeInto, parseCsv, SOURCE_LABEL, validate, type Kind, type Mapping, type Parsed, type Source, type Table } from './engine/csv.ts'
 import { isoDate, stageOrder } from './engine/pipeline.ts'
 import { readWorkbook } from './engine/xlsx.ts'
 import { RULE_LABEL, RULES, type Config, type Dataset } from './engine/types.ts'
@@ -15,7 +15,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 
 async function readTable(f: File): Promise<Table> {
   if (/\.xlsx?$/i.test(f.name)) return readWorkbook(await f.arrayBuffer())
-  return parseCsv(await f.text())
+  return parseCsv(decodeText(await f.arrayBuffer()))
 }
 
 export default function DataTab({ project, ds, cfg, update, setConfig }: { project: Project; ds: Dataset; cfg: Config; update(p: Partial<Project>): void; setConfig(p: Partial<Config>): void }) {

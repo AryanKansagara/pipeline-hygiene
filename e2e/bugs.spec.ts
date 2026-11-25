@@ -105,7 +105,7 @@ test.fail('#11 a shared social host does not make two companies one', async ({ p
   expect((await kpis(page))['Duplicate clusters']).toContain('0 | ')
 })
 
-test.fail('#12 a blank amount is rewound', async ({ page }) => {
+test('#12 a blank amount is rewound', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('A')))
   await importFile(page, 'history.csv', historyCsv('A,Forecast Category,Pipeline,Commit,9/20/2026', 'A,Amount,,100000,10/20/2026'))

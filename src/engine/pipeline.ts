@@ -55,13 +55,18 @@ export function quarterOf(t: number, fiscalStartMonth = 1): Quarter {
 export const prevQuarter = (q: Quarter, fsm: number) => quarterOf(q.start - DAY, fsm)
 export const inQuarter = (t: number, q: Quarter) => t >= q.start && t < q.end
 
-/** The export date: configured, else the latest timestamp in the data that is not in the future of activity. */
-export function asOfDate(ds: Dataset, cfg: Config): number {
+/** The export date: configured, else the latest date in the data. Planned activities and other dates after today do not count. */
+export function asOfDate(ds: Dataset, cfg: Config, now = Date.now()): number {
   if (cfg.asOf) return utcDay(cfg.asOf)
+  const d = new Date(now)
+  const today = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  // Dates are compared with the calendar day here; changes also carry a time, which can already be tomorrow in UTC.
+  const latest = Math.max(now, endOfDay(today))
   let m = 0
-  for (const o of ds.opps) m = Math.max(m, o.created, o.lastActivity ?? 0)
-  for (const e of ds.history) m = Math.max(m, e.at)
-  return m ? utcDay(m) : utcDay(Date.now())
+  const add = (t: number, max: number) => { if (t <= max) m = Math.max(m, t) }
+  for (const o of ds.opps) { add(o.created, latest); add(o.lastActivity ?? 0, endOfDay(today)) }
+  for (const e of ds.history) add(e.at, latest)
+  return m ? utcDay(m) : utcDay(now)
 }
 
 // ---------- History ----------

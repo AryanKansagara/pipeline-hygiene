@@ -28,7 +28,7 @@ test.fail('#3 a decimal comma is not a thousands separator', async ({ page }) =>
   expect((await kpis(page))['Open pipeline']).toContain('$2k | ')
 })
 
-test.fail('#4 without history there is no accuracy and nobody is a sandbagger', async ({ page }) => {
+test('#4 without history there is no accuracy and nobody is a sandbagger', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('W', { stage: 'Closed Won', close: '9/15/2026', created: '1/10/2026', fc: 'Closed' }), deal('A')))
   await tab(page, 'Overview')

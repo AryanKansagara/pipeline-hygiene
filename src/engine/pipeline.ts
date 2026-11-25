@@ -2,8 +2,10 @@ import { DAY, RULES, type Config, type Dataset, type HistEvent, type Opp, type R
 
 // ---------- Stages, categories, dates ----------
 
-export const isWon = (stage: string) => /won/i.test(stage)
-export const isLost = (stage: string) => !isWon(stage) && /lost|closed|dead|disqualified/i.test(stage)
+// Beats "won": "Closed Lost - Competitor Won", "Not Won", "Won't buy".
+const NOT_WON = /lost|not[\s_-]*won|won['’]?t\b/i
+export const isWon = (stage: string) => /won/i.test(stage) && !NOT_WON.test(stage)
+export const isLost = (stage: string) => !isWon(stage) && /lost|won|closed|dead|disqualified/i.test(stage)
 export const isClosed = (stage: string) => isWon(stage) || isLost(stage)
 
 export function normFc(s: string): string {

@@ -90,7 +90,7 @@ test.fail('#9 a formula in a name cannot run from an exported file', async ({ pa
   expect(plan.text).not.toMatch(/(^|,|")=cmd/m)
 })
 
-test.fail('#10 ISO-8859-1 exports keep their accents', async ({ page }) => {
+test('#10 ISO-8859-1 exports keep their accents', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'latin1.csv', Buffer.from(oppsCsv(deal('A', { name: 'Société', close: '1/5/2026' })), 'latin1'))
   await tab(page, 'Hygiene')

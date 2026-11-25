@@ -12,6 +12,21 @@ export interface Table {
   openEnd?: number
 }
 
+/** Text of a file: UTF-16 with a byte order mark, UTF-8, or Windows-1252 (which covers ISO-8859-1) when it is not valid UTF-8. */
+export function decodeText(buf: ArrayBuffer): string {
+  const b = new Uint8Array(buf)
+  if (b[0] === 0xff && b[1] === 0xfe) return new TextDecoder('utf-16le').decode(b)
+  if (b[0] === 0xfe && b[1] === 0xff) return new TextDecoder('utf-16be').decode(b)
+  const utf8 = new TextDecoder().decode(b)
+  if (b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) return utf8
+  try {
+    // Streaming lets a file that was cut inside a character pass, unless that is its only character beyond ASCII.
+    const t = new TextDecoder('utf-8', { fatal: true }).decode(b, { stream: true })
+    if (t.length === utf8.length || /[^\0-\x7f]/.test(t)) return utf8
+  } catch { /* not UTF-8 */ }
+  return new TextDecoder('windows-1252').decode(b)
+}
+
 export function parseCsv(text: string, delim?: string): Table {
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
   delim ??= sniffDelimiter(text)

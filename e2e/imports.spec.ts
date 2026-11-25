@@ -28,6 +28,12 @@ test('BOM, CRLF and tab-separated files', async ({ page }) => {
   await expect(page.getByText('9 opportunities')).toBeVisible()
 })
 
+test('Excel Unicode Text (UTF-16, tabs)', async ({ page }) => {
+  await newOrg(page)
+  await importFile(page, 'unicode.txt', Buffer.from('\ufeff' + [HEAD, ['U1', 'Société', 'Ann', 'Prospecting', '10', '1/5/2026']].map(r => r.join('\t')).join('\r\n') + '\r\n', 'utf16le'), 'opps')
+  await imported(page, 'Société')
+})
+
 test('Data Loader opportunities and Opportunity History', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', 'ID,NAME,ACCOUNT.NAME,OWNER.NAME,STAGENAME,AMOUNT,CLOSEDATE,CREATEDDATE,LASTACTIVITYDATE,NEXTSTEP,FORECASTCATEGORYNAME\n006A,Loader deal,Acme,Ann,Prospecting,100,2026-12-15,2026-10-01T00:00:00.000Z,2026-11-06,Call,Commit\n', 'opps')

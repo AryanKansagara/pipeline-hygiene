@@ -131,7 +131,7 @@ test('#14 the merge plan has no made-up IDs', async ({ page }) => {
   await expect(page.getByText('1 cluster is left out of the merge plan')).toBeVisible()
 })
 
-test.fail('#15 lost to a competitor is not won', async ({ page }) => {
+test('#15 lost to a competitor is not won', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('A', { close: '10/20/2026', stage: 'Closed Lost - Competitor Won', fc: 'Omitted' }), deal('B', { amount: '50000' })))
   await tab(page, 'Overview')

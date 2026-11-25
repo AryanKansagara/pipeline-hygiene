@@ -1,4 +1,4 @@
-import { normFc } from './pipeline.ts'
+import { isLost, isWon, normFc } from './pipeline.ts'
 import { DAY, type Dataset, type HistEvent, type HistField, type Opp, type Party, type PartyKind } from './types.ts'
 
 // ---------- CSV ----------
@@ -527,7 +527,7 @@ export function mergeInto(ds: Dataset, p: Parsed): Dataset {
     const k = x.kind + idKey(x.id)
     parties.set(k, { ...x, id: parties.get(k)?.id ?? x.id })
   }
-  const fill = (o: Opp): Opp => o.forecastCategory ? o : { ...o, forecastCategory: /won/i.test(o.stage) ? 'Closed' : /lost|closed/i.test(o.stage) ? 'Omitted' : 'Pipeline' }
+  const fill = (o: Opp): Opp => o.forecastCategory ? o : { ...o, forecastCategory: isWon(o.stage) ? 'Closed' : isLost(o.stage) ? 'Omitted' : 'Pipeline' }
   return { opps: [...opps.values()].map(fill), history: [...hist.values()], parties: [...parties.values()] }
 }
 

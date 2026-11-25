@@ -120,7 +120,7 @@ test.fail('#13 separators in a title line do not break the table', async ({ page
   expect(await page.locator('main').textContent()).toContain('2 records ready from 2 rows')
 })
 
-test.fail('#14 the merge plan has no made-up IDs', async ({ page }) => {
+test('#14 the merge plan has no made-up IDs', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'companies.csv', 'Company name,Company domain name,Phone Number,City\nAcme Inc,acme.com,,Oslo\nACME LLC,acme.com,,Oslo\n', 'account')
   await tab(page, 'Duplicates')
@@ -128,6 +128,7 @@ test.fail('#14 the merge plan has no made-up IDs', async ({ page }) => {
   const button = page.getByRole('button', { name: 'Download merge plan CSV' })
   const text = await button.isDisabled() ? '' : (await downloaded(page, () => button.click())).text
   expect(text).not.toContain('name:')
+  await expect(page.getByText('1 cluster is left out of the merge plan')).toBeVisible()
 })
 
 test.fail('#15 lost to a competitor is not won', async ({ page }) => {

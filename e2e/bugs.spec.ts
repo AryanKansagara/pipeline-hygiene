@@ -145,7 +145,7 @@ test.fail('#16 no open deals is not a perfect score', async ({ page }) => {
   expect((await kpis(page))['Pipeline hygiene']).not.toContain('100')
 })
 
-test.fail('#17 same-minute changes listed newest first are chained', async ({ page }) => {
+test('#17 same-minute changes listed newest first are chained', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('A')))
   await importFile(page, 'history.csv', historyCsv('A,Close Date,11/15/2026,12/15/2026,"10/6/2026, 10:00 AM"', 'A,Close Date,10/15/2026,11/15/2026,"10/6/2026, 10:00 AM"'))

@@ -15,7 +15,7 @@ export function sampleData(id: string): Dataset | null {
 
 /** Weekly snapshots rebuilt from field history, oldest first. */
 export function backfill(ds: Dataset, cfg: Config, weeks: number, dupClusters: number) {
-  const idx = indexHistory(ds.history)
+  const idx = indexHistory(ds.history, ds.opps)
   const asOf = hygiene(ds, cfg, idx).asOf
   const out = []
   for (let w = weeks; w >= 0; w--) {
@@ -67,7 +67,7 @@ export function useProject(id: string) {
 export type Analysis = ReturnType<typeof analyzeAll>
 
 export function analyzeAll(ds: Dataset, cfg: Config) {
-  const idx = indexHistory(ds.history)
+  const idx = indexHistory(ds.history, ds.opps)
   const hasOpps = ds.opps.length > 0
   const h = hygiene(ds, cfg, idx)
   return {

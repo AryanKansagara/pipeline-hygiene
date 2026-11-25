@@ -97,6 +97,8 @@ export interface Config {
   dupThreshold: number
   /** Close-date fixes a manager approved: opp id -> new close date. */
   approved: Record<string, number>
+  /** The close date each approval replaced, so it lapses when the deal's date changes. Missing on older approvals. */
+  approvedFrom?: Record<string, number>
   /** Clusters a reviewer marked as not duplicates, by clusterKey. */
   notDup?: string[]
 }

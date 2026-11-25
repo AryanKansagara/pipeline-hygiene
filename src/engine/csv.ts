@@ -111,7 +111,11 @@ export function parseAmount(raw: string): number {
   const neg = /^\(.*\)$/.test(s)
   s = s.replace(/[()]/g, '')
   if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.')
-  else s = s.replace(/,/g, '')
+  // No locale groups fewer than three digits, so one or two after the only comma are decimals.
+  else if (/^[+-]?\d*,\d{1,2}$/.test(s)) s = s.replace(',', '.')
+  // Thousands, or the Indian 12,34,567.
+  else if (/^[+-]?\d{1,3}(,\d{3})+(\.\d*)?$/.test(s) || /^[+-]?\d{1,2}(,\d{2})+,\d{3}(\.\d*)?$/.test(s)) s = s.replace(/,/g, '')
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s)) return NaN
   const n = Number(s)
   return neg ? -n : n
 }

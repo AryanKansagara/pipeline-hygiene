@@ -113,7 +113,7 @@ test.fail('#12 a blank amount is rewound', async ({ page }) => {
   expect(await page.getByRole('img', { name: 'Commit waterfall for Q4 2026' }).getAttribute('aria-label')).toContain('$0 at week 1, $100k today')
 })
 
-test.fail('#13 separators in a title line do not break the table', async ({ page }) => {
+test('#13 separators in a title line do not break the table', async ({ page }) => {
   await newOrg(page)
   await choose(page, ['title.csv', '"Pipeline | EMEA | Q4"\n\n' + oppsCsv(deal('A'), deal('B'))])
   await expect(pending(page, 'title.csv').or(toastText(page).getByText('title.csv')).first()).toBeVisible()

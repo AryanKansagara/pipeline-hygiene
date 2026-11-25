@@ -22,5 +22,5 @@ export async function readWorkbook(buf: ArrayBuffer): Promise<Table> {
     if (addr[0] === '!' || cell.t !== 'n' || !cell.z || !XLSX.SSF.is_date(cell.z)) continue
     cell.w = serialToIso(cell.v as number, date1904)
   }
-  return parseCsv(XLSX.utils.sheet_to_csv(ws, { blankrows: true }))
+  return parseCsv(XLSX.utils.sheet_to_csv(ws, { blankrows: true }), ',')
 }

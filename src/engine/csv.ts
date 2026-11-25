@@ -12,9 +12,9 @@ export interface Table {
   openEnd?: number
 }
 
-export function parseCsv(text: string): Table {
+export function parseCsv(text: string, delim?: string): Table {
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
-  const delim = sniffDelimiter(text)
+  delim ??= sniffDelimiter(text)
   const rows: string[][] = []
   const lines: number[] = []
   let row: string[] = []
@@ -55,10 +55,24 @@ export function parseCsv(text: string): Table {
   return t
 }
 
+/**
+ * The separator with the largest table below one of its lines, so a title line above the header does not decide.
+ * A line heads a table of itself and every later line with 2 or more cells but no more than it has; ties go to the wider header.
+ */
 function sniffDelimiter(text: string): string {
-  const head = text.slice(0, text.indexOf('\n') === -1 ? text.length : text.indexOf('\n'))
-  const counts = [',', '\t', ';', '|'].map(d => [d, head.split(d).length] as const)
-  return counts.sort((a, b) => b[1] - a[1])[0][0]
+  const lines = text.slice(0, 65536)
+    .replace(/(^|[\r\n,;|\t])"[^"]*(?:""[^"]*)*"/g, '$1') // Separators inside quotes do not count.
+    .split(/[\r\n]+/).filter(l => l.trim()).slice(0, 100)
+  let best = ',', rows = 0, width = 0
+  for (const d of [',', '\t', ';', '|']) {
+    const cells = lines.map(l => l.split(d).length)
+    for (let i = 0; i < Math.min(cells.length, 25); i++) {
+      if (cells[i] < 2) continue
+      const n = cells.slice(i).filter(c => c >= 2 && c <= cells[i]).length
+      if (n > rows || (n === rows && cells[i] > width)) { best = d; rows = n; width = cells[i] }
+    }
+  }
+  return best
 }
 
 export function toCsv(rows: (string | number)[][]): string {

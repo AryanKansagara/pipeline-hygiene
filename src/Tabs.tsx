@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { activeApprovals, closeDateUpdateCsv, mailto, mergePlanCsv, ownerEmail, ruleSummary, survivorshipCsv } from './engine/actions.ts'
 import { clusterKey, findDuplicates, reviewed, survivorship, mergeBatches, type Cluster } from './engine/dedupe.ts'
-import { isoDate, realisticClose, weeklyCalls, type OppRow, type Snapshot } from './engine/pipeline.ts'
+import { hasStageHistory, isoDate, realisticClose, weeklyCalls, type OppRow, type Snapshot } from './engine/pipeline.ts'
 import { DAY, RULE_LABEL, RULES, type PartyKind, type RuleId } from './engine/types.ts'
 import { Dial, ScoreBadge, short, Spark, StepDetail, WaterfallChart, WaterLegend } from './charts.tsx'
 import type { Tab, TabProps } from './Project.tsx'
 import { backfill } from './projectData.ts'
 import { getDefaults } from './store.ts'
 import { deleteSnapshotCloud } from './sync.ts'
-import { ask, CopyButton, download, Empty, fmtDate, fmtMoney, fmtN, fmtPct, Link, signed, toast } from './ui.tsx'
+import { ask, CopyButton, download, Empty, fmtDate, fmtMoney, fmtN, fmtPct, Link, NoHistory, signed, toast } from './ui.tsx'
 
 export default function Tabs(p: TabProps & { tab: Tab }) {
   const needsOpps = p.tab === 'overview' || p.tab === 'hygiene' || p.tab === 'forecast'
@@ -29,7 +29,7 @@ const slug = (s: string) => s.replace(/\W+/g, '-').replace(/^-|-$/g, '').toLower
 
 // ---------- Overview ----------
 
-function Overview({ project, a }: TabProps) {
+function Overview({ project, ds, a }: TabProps) {
   const { h, wf, acc } = a
   const [real, setReal] = useState(true)
   const [sel, setSel] = useState<number>(() => wf ? wf.steps.reduce((bi, s, i, l) => (s.end - s.start) < (l[bi].end - l[bi].start) ? i : bi, 0) : 0)
@@ -37,11 +37,12 @@ function Overview({ project, a }: TabProps) {
   const accByOwner = new Map(acc.owners.map(o => [o.owner, o]))
   return (
     <>
+      {!hasStageHistory(ds) && <NoHistory />}
       <div className="kpis">
         <div className="kpi"><small>Pipeline hygiene</small><b>{h.total.score}<span className="unit">/100</span></b><p>{fmtPct(h.total.clean)} of open deals are clean</p></div>
         <div className="kpi"><small>Open pipeline</small><b>{short(h.total.amount)}</b><p>{short(h.total.flaggedAmount)} sits on flagged deals</p></div>
         <div className="kpi"><small>{wf.q.label} commit today</small><b>{short(wf.end)}</b><p>Realistic: <strong>{short(wf.realisticEnd)}</strong> ({wf.projected.length} deals likely to slip)</p></div>
-        <div className="kpi"><small>Forecast accuracy (week {acc.week})</small><b>{acc.team.mape === null ? '—' : fmtPct(Math.max(0, 1 - acc.team.mape))}</b><p>{acc.team.bias === null ? 'Needs a closed quarter' : `MAPE ${fmtPct(acc.team.mape ?? 0)}, bias ${signed(acc.team.bias, v => fmtPct(v))}`}</p></div>
+        <div className="kpi"><small>Forecast accuracy (week {acc.week})</small><b>{acc.team.mape === null ? '—' : fmtPct(Math.max(0, 1 - acc.team.mape))}</b><p>{acc.team.bias === null ? 'Needs a closed quarter with history' : `MAPE ${fmtPct(acc.team.mape ?? 0)}, bias ${signed(acc.team.bias, v => fmtPct(v))}`}</p></div>
       </div>
 
       <div className="panel">
@@ -224,11 +225,12 @@ function Forecast({ ds, cfg, a }: TabProps) {
 
   return (
     <>
+      {!hasStageHistory(ds) && <NoHistory />}
       <div className="grid-2">
         <div className="panel center-panel">
           <h2>Forecast accuracy</h2>
           <Dial mape={acc.team.mape} bias={acc.team.bias} label={`commit at week ${acc.week}`} />
-          <p className="muted small">Commit (won + open Commit closing in the quarter) as it stood at week {acc.week}, against closed-won at quarter end, over the last {acc.quarters.length} quarters. MAPE is the mean absolute error; bias is total called vs total won.</p>
+          <p className="muted small">Commit (won + open Commit closing in the quarter) as it stood at week {acc.week}, against closed-won at quarter end, over {acc.quarters.length ? `the last ${acc.quarters.length} quarters` : 'the completed quarters that history covers (none yet)'}. MAPE is the mean absolute error; bias is total called vs total won.</p>
         </div>
         <div className="panel">
           <h2>{wk.q.label} week by week</h2>

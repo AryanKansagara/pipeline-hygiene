@@ -19,7 +19,7 @@ test('#2 an approved close date is dropped once the deal has closed', async ({ p
   expect(await page.locator('.badge', { hasText: 'approved' }).textContent()).toBe('0 approved')
 })
 
-test.fail('#3 a decimal comma is not a thousands separator', async ({ page }) => {
+test('#3 a decimal comma is not a thousands separator', async ({ page }) => {
   await newOrg(page)
   await choose(page, ['euro.csv', oppsCsv(deal('A', { amount: '"1234,50"' }), deal('B', { amount: '"1,234.50"' }))])
   await expect(pending(page, 'euro.csv')).toContainText('2 records ready')

@@ -6,7 +6,7 @@ import { choose, downloaded, expect, historyCsv, importFile, kpis, newOrg, oppsC
 const deal = (id: string, o: { name?: string; stage?: string; amount?: string; close?: string; created?: string; activity?: string; fc?: string; roles?: string } = {}) =>
   `${id},${o.name ?? id},Acme,Ann,East,${o.stage ?? 'Prospecting'},${o.amount ?? '100000'},${o.close ?? '12/15/2026'},${o.created ?? '9/10/2026'},${o.activity ?? '11/6/2026'},Call,${o.fc ?? 'Commit'},${o.roles ?? '3'}`
 
-test.fail('#2 an approved close date is dropped once the deal has closed', async ({ page }) => {
+test('#2 an approved close date is dropped once the deal has closed', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'week1.csv', oppsCsv(deal('A', { close: '10/31/2026' }), deal('B', { close: '10/30/2026' })))
   await tab(page, 'Hygiene')

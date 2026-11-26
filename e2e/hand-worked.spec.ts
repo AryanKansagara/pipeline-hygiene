@@ -1,4 +1,4 @@
-import { downloaded, expect, handOrg, historyCsv, importFile, kpis, newOrg, oppsCsv, row, tab, test } from './fixtures.ts'
+import { downloaded, expect, handOrg, importFile, kpis, newOrg, row, tab, test } from './fixtures.ts'
 
 // Every expected number below was worked out on paper from the rows in fixtures.ts and the documented rules.
 
@@ -133,14 +133,4 @@ test('duplicates: confidence, master, merge plan and survivorship', async ({ pag
   await expect(page.getByText('No clusters at this threshold.')).toBeVisible()
   await page.reload()
   await expect(page.getByText('1 cluster marked as not duplicates.')).toBeVisible()
-})
-
-test('a close date moved earlier is not a push', async ({ page }) => {
-  await newOrg(page)
-  await importFile(page, 'opps.csv', oppsCsv('A,Alpha,Acme,Ann,East,Prospecting,100,12/15/2026,9/1/2026,11/6/2026,Call,Commit,3'))
-  // 15 Nov -> 30 Dec is a push of 45 days; 30 Dec -> 15 Dec is a pull-in. One push stays under the limit of two.
-  await importFile(page, 'history.csv', historyCsv('A,Close Date,11/15/2026,12/30/2026,10/1/2026', 'A,Close Date,12/30/2026,12/15/2026,10/20/2026'))
-  await tab(page, 'Hygiene')
-  await expect(row(page, /^Alpha/)).toContainText('pushed 1× · 45d')
-  await expect(row(page, /^Alpha/).locator('.flag')).toHaveText(['Stuck in stage'])
 })

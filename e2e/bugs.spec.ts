@@ -36,7 +36,7 @@ test('#4 without history there is no accuracy and nobody is a sandbagger', async
   expect(await row(page, 'Ann').textContent()).not.toContain('Sandbagging')
 })
 
-test.fail('#5 15- and 18-character Salesforce IDs are the same record', async ({ page }) => {
+test('#5 15- and 18-character Salesforce IDs are the same record', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('0065g00000AbCdE', { name: 'Quartz', roles: '' })), 'opps')
   await importFile(page, 'history.csv', 'Id,OpportunityId,CreatedDate,StageName,Amount,CloseDate,ForecastCategory\n1,0065g00000AbCdEAAV,2026-09-12T00:00:00.000Z,Prospecting,100000,2026-10-15,Commit\n2,0065g00000AbCdEAAV,2026-10-01T00:00:00.000Z,Prospecting,100000,2026-11-15,Commit\n3,0065g00000AbCdEAAV,2026-10-20T00:00:00.000Z,Prospecting,100000,2026-12-15,Commit\n', 'history')

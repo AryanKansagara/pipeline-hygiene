@@ -421,19 +421,51 @@ export function validate(t: Table, map: Mapping, kind: Kind): Parsed {
   return out
 }
 
+// ---------- Salesforce IDs ----------
+
+const CHECK = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345'
+
+/**
+ * Reports export 15-character, case-sensitive IDs; Data Loader and the API export 18 characters, where the last three
+ * encode which of each five letters are upper case. Returns the 15-character form when that checksum holds, else the ID unchanged.
+ */
+export function idKey(id: string): string {
+  if (!/^[A-Za-z0-9]{18}$/.test(id)) return id
+  for (let c = 0; c < 3; c++) {
+    let bits = 0
+    for (let i = 0; i < 5; i++) if (/[A-Z]/.test(id[c * 5 + i])) bits |= 1 << i
+    if (id[15 + c] !== CHECK[bits]) return id
+  }
+  return id.slice(0, 15)
+}
+
 // ---------- Merge into a dataset ----------
 
 export function mergeInto(ds: Dataset, p: Parsed): Dataset {
-  const opps = new Map(ds.opps.map(o => [o.id, o]))
-  for (const o of p.opps) opps.set(o.id, { ...o, contactRoles: o.contactRoles ?? opps.get(o.id)?.contactRoles })
-  if (p.roles.size) for (const [id, s] of p.roles) { const o = opps.get(id); if (o) opps.set(id, { ...o, contactRoles: s.size }) }
-  // Opportunities with no roles in a full Contact Roles export have zero roles.
-  if (p.kind === 'roles') for (const [id, o] of opps) if (!p.roles.has(id)) opps.set(id, { ...o, contactRoles: 0 })
+  // Records are matched on idKey; the ID seen first stays, so approvals and review decisions keep pointing at it.
+  const opps = new Map<string, Opp>()
+  for (const o of [...ds.opps, ...p.opps]) {
+    const k = idKey(o.id), had = opps.get(k)
+    opps.set(k, { ...o, id: had?.id ?? o.id, contactRoles: o.contactRoles ?? had?.contactRoles })
+  }
+  if (p.kind === 'roles') {
+    const roles = new Map<string, Set<string>>()
+    for (const [id, s] of p.roles) roles.set(idKey(id), new Set([...roles.get(idKey(id)) ?? [], ...[...s].map(idKey)]))
+    // Opportunities with no roles in a full Contact Roles export have zero roles.
+    for (const [k, o] of opps) opps.set(k, { ...o, contactRoles: roles.get(k)?.size ?? 0 })
+  }
   const key = (e: HistEvent) => `${e.oppId}|${e.at}|${e.field}|${e.to}`
-  const hist = new Map(ds.history.map(e => [key(e), e]))
-  for (const e of p.history) hist.set(key(e), e)
-  const parties = new Map(ds.parties.map(x => [x.kind + x.id, x]))
-  for (const x of p.parties) parties.set(x.kind + x.id, x)
+  const hist = new Map<string, HistEvent>()
+  for (const raw of [...ds.history, ...p.history]) {
+    const id = opps.get(idKey(raw.oppId))?.id ?? raw.oppId
+    const e = id === raw.oppId ? raw : { ...raw, oppId: id }
+    hist.set(key(e), e)
+  }
+  const parties = new Map<string, Party>()
+  for (const x of [...ds.parties, ...p.parties]) {
+    const k = x.kind + idKey(x.id)
+    parties.set(k, { ...x, id: parties.get(k)?.id ?? x.id })
+  }
   const fill = (o: Opp): Opp => o.forecastCategory ? o : { ...o, forecastCategory: /won/i.test(o.stage) ? 'Closed' : /lost|closed/i.test(o.stage) ? 'Omitted' : 'Pipeline' }
   return { opps: [...opps.values()].map(fill), history: [...hist.values()], parties: [...parties.values()] }
 }

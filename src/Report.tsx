@@ -1,13 +1,13 @@
 import { useEffect, useMemo } from 'react'
 import { ruleSummary } from './engine/actions.ts'
 import { toCsv } from './engine/csv.ts'
-import { isoDate } from './engine/pipeline.ts'
+import { hasStageHistory, isoDate } from './engine/pipeline.ts'
 import { DAY } from './engine/types.ts'
 import { Dial, ScoreBadge, short, WaterfallChart, WaterLegend } from './charts.tsx'
 import { useAnalysis, useProject } from './projectData.ts'
 import { getDefaults } from './store.ts'
 import { labelTone } from './Tabs.tsx'
-import { download, fmtDate, fmtMoney, fmtPct, Link, signed, SyntheticBadge } from './ui.tsx'
+import { download, fmtDate, fmtMoney, fmtPct, Link, NoHistory, signed, SyntheticBadge } from './ui.tsx'
 
 export default function Report({ id }: { id: string }) {
   const { loading, project, ds } = useProject(id)
@@ -41,6 +41,7 @@ export default function Report({ id }: { id: string }) {
       <div className="eyebrow">Weekly forecast call · {defs.callDay}</div>
       <h1>{project.name}, {wf.q.label} {project.sampleId && <SyntheticBadge />}</h1>
       <p className="muted">Data as of {fmtDate(h.asOf)} · {h.total.open} open deals · {fmtDate(wf.q.end - DAY)} quarter end ({Math.max(0, Math.round((wf.q.end - h.asOf) / DAY))} days left) · prepared by {defs.sender}</p>
+      {ds && !hasStageHistory(ds) && <NoHistory />}
       <div className="kpis">
         <div className="kpi"><small>Commit called</small><b>{short(wf.end)}</b><p>{signed(wf.end - wf.start, short)} since week 1</p></div>
         <div className="kpi"><small>Realistic commit</small><b>{short(wf.realisticEnd)}</b><p>{wf.projected.length} deals likely to slip</p></div>
@@ -78,7 +79,7 @@ export default function Report({ id }: { id: string }) {
 
       <div className="report-foot">
         <Dial mape={acc.team.mape} bias={acc.team.bias} label={`commit at week ${acc.week}`} size={180} />
-        <p className="muted small">Method: the commit is won plus open deals in the Commit category closing this quarter, rebuilt for each past week from Opportunity Field History. Realistic close dates move each deal by the median further slip of comparable closed deals (same owner when there are 5 or more, else the team) after the same number of close-date pushes. Accuracy compares the week-{acc.week} commit with closed-won over the last {acc.quarters.length} quarters. {project.sampleId ? 'This org is synthetic.' : ''}</p>
+        <p className="muted small">Method: the commit is won plus open deals in the Commit category closing this quarter, rebuilt for each past week from Opportunity Field History. Realistic close dates move each deal by the median further slip of comparable closed deals (same owner when there are 5 or more, else the team) after the same number of close-date pushes. Accuracy compares the week-{acc.week} commit with closed-won over {acc.quarters.length ? `the last ${acc.quarters.length} quarters` : 'completed quarters that history covers (none yet)'}. {project.sampleId ? 'This org is synthetic.' : ''}</p>
       </div>
     </article>
   )

@@ -6,7 +6,7 @@ import { choose, downloaded, expect, historyCsv, importFile, kpis, newOrg, oppsC
 const deal = (id: string, o: { name?: string; stage?: string; amount?: string; close?: string; created?: string; activity?: string; fc?: string; roles?: string } = {}) =>
   `${id},${o.name ?? id},Acme,Ann,East,${o.stage ?? 'Prospecting'},${o.amount ?? '100000'},${o.close ?? '12/15/2026'},${o.created ?? '9/10/2026'},${o.activity ?? '11/6/2026'},Call,${o.fc ?? 'Commit'},${o.roles ?? '3'}`
 
-test.fail('#2 an approved close date is dropped once the deal has closed', async ({ page }) => {
+test('#2 an approved close date is dropped once the deal has closed', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'week1.csv', oppsCsv(deal('A', { close: '10/31/2026' }), deal('B', { close: '10/30/2026' })))
   await tab(page, 'Hygiene')
@@ -19,7 +19,7 @@ test.fail('#2 an approved close date is dropped once the deal has closed', async
   expect(await page.locator('.badge', { hasText: 'approved' }).textContent()).toBe('0 approved')
 })
 
-test.fail('#3 a decimal comma is not a thousands separator', async ({ page }) => {
+test('#3 a decimal comma is not a thousands separator', async ({ page }) => {
   await newOrg(page)
   await choose(page, ['euro.csv', oppsCsv(deal('A', { amount: '"1234,50"' }), deal('B', { amount: '"1,234.50"' }))])
   await expect(pending(page, 'euro.csv')).toContainText('2 records ready')
@@ -28,7 +28,7 @@ test.fail('#3 a decimal comma is not a thousands separator', async ({ page }) =>
   expect((await kpis(page))['Open pipeline']).toContain('$2k | ')
 })
 
-test.fail('#4 without history there is no accuracy and nobody is a sandbagger', async ({ page }) => {
+test('#4 without history there is no accuracy and nobody is a sandbagger', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('W', { stage: 'Closed Won', close: '9/15/2026', created: '1/10/2026', fc: 'Closed' }), deal('A')))
   await tab(page, 'Overview')

@@ -46,7 +46,7 @@ test('#5 15- and 18-character Salesforce IDs are the same record', async ({ page
   expect(await row(page, /^Quartz/).locator('.flag').allTextContents()).toEqual(['Stuck in stage', 'Close date pushed repeatedly'])
 })
 
-test.fail('#6 commit today includes the changes made today', async ({ page }) => {
+test('#6 commit today includes the changes made today', async ({ page }) => {
   await newOrg(page)
   await importFile(page, 'opps.csv', oppsCsv(deal('A')))
   await importFile(page, 'history.csv', historyCsv('A,Forecast Category,Pipeline,Commit,"11/6/2026, 10:00 AM"'))

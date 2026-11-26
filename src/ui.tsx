@@ -312,4 +312,6 @@ export function Empty({ title, children, icon }: { title: string; children?: Rea
   return <div className="empty">{icon ?? <div className="empty-icon" aria-hidden="true" />}<h3>{title}</h3>{children}</div>
 }
 
+export const NoHistory = () => <div className="banner warn"><span><strong>No stage history imported.</strong> Past weeks below show today&rsquo;s values, and forecast accuracy cannot be measured. Import Opportunity History or Field History (<Link href="/docs#history">how</Link>).</span></div>
+
 export const SyntheticBadge = () => <span className="badge synthetic" title="Generated data, not a real company">Synthetic</span>

@@ -33,6 +33,8 @@ export function stageOrder(cfg: Config, opps: Opp[], history: HistEvent[] = []):
 }
 
 export const utcDay = (t: number) => Math.floor(t / DAY) * DAY
+/** Last moment of the day starting at t: "as of" a date includes everything that happened on it. */
+export const endOfDay = (t: number) => t + DAY - 1
 export const isoDate = (t: number) => new Date(t).toISOString().slice(0, 10)
 
 export interface Quarter { key: string; label: string; start: number; end: number }
@@ -63,6 +65,9 @@ export function asOfDate(ds: Dataset, cfg: Config): number {
 }
 
 // ---------- History ----------
+
+/** Without stage changes a past week cannot be rebuilt: a won deal looks won all along. */
+export const hasStageHistory = (ds: Dataset) => ds.history.some(e => e.field === 'stage')
 
 export type HistIndex = Map<string, HistEvent[]>
 
@@ -295,7 +300,9 @@ export function waterfall(ds: Dataset, cfg: Config, idx = indexHistory(ds.histor
   for (let t = q.start; t < last; t += 7 * DAY) points.push(t)
   points.push(last)
   const byId = new Map(ds.opps.map(o => [o.id, o]))
-  const calls = points.map(t => callAt(ds, idx, q, t, fc))
+  // Weeks are read as they begin; today is read with all of today's changes.
+  const times = points.map((t, i) => i === points.length - 1 ? endOfDay(t) : t)
+  const calls = times.map(t => callAt(ds, idx, q, t, fc))
   const steps: WaterStep[] = []
   for (let i = 1; i < points.length; i++) {
     const a = calls[i - 1], b = calls[i], t = points[i]
@@ -303,19 +310,19 @@ export function waterfall(ds: Dataset, cfg: Config, idx = indexHistory(ds.histor
     const amt = (id: string, at: number) => stateAt(byId.get(id)!, idx.get(id), at)?.amount ?? 0
     for (const id of a.commitIds) {
       const o = byId.get(id)!
-      const prev = amt(id, points[i - 1])
+      const prev = amt(id, times[i - 1])
       if (!b.commitIds.has(id)) {
-        const s = stateAt(o, idx.get(id), t)!
+        const s = stateAt(o, idx.get(id), times[i])!
         const why = s.closeDate >= q.end ? 'pushed' : isLost(s.stage) ? 'lost' : 'downgraded'
         st[why] -= prev
         st.movers.push({ id, name: o.name, owner: o.owner, amount: -prev, why })
       } else {
-        const d = amt(id, t) - prev
+        const d = amt(id, times[i]) - prev
         if (d) { st.amount += d; st.movers.push({ id, name: o.name, owner: o.owner, amount: d, why: 'amount' }) }
       }
     }
     for (const id of b.commitIds) if (!a.commitIds.has(id)) {
-      const o = byId.get(id)!, v = amt(id, t)
+      const o = byId.get(id)!, v = amt(id, times[i])
       st.added += v
       st.movers.push({ id, name: o.name, owner: o.owner, amount: v, why: 'added' })
     }
@@ -342,7 +349,7 @@ export function weeklyCalls(ds: Dataset, cfg: Config, idx = indexHistory(ds.hist
   const fc = fcResolver(ds)
   const out: { at: number; won: number; commit: number; best: number; pipeline: number }[] = []
   for (let t = q.start; t <= asOf && t < q.end; t += 7 * DAY) {
-    const c = callAt(ds, idx, q, t, fc)
+    const c = callAt(ds, idx, q, t === asOf ? endOfDay(t) : t, fc)
     out.push({ at: t, won: c.won, commit: commitTotal(c), best: bestTotal(c), pipeline: bestTotal(c) + c.pipeline })
   }
   return { q, weeks: out }
@@ -370,20 +377,23 @@ const summarize = (owner: string, team: string, cells: AccCell[]): OwnerAcc => {
  * Commit called at week N of each completed quarter vs closed-won in that quarter.
  * err = (forecast - actual) / actual: negative means sandbagging, positive means over-forecasting.
  * A commit with nothing won is a 100% miss (capped, since the ratio is undefined) rather than being left out.
+ * A quarter whose week N lies before the history starts is left out: the call cannot be rebuilt, and today's values are not it.
  */
 export function accuracy(ds: Dataset, cfg: Config, idx = indexHistory(ds.history), maxQuarters = 6): Accuracy {
   const asOf = asOfDate(ds, cfg)
   const fc = fcResolver(ds)
   const firstData = ds.opps.reduce((m, o) => Math.min(m, o.created), Infinity)
+  const firstEvent = hasStageHistory(ds) ? ds.history.reduce((m, e) => Math.min(m, e.at), Infinity) : Infinity
+  const calledAt = (q: Quarter) => q.start + (cfg.forecastWeek - 1) * 7 * DAY
   const quarters: Quarter[] = []
   let q = prevQuarter(quarterOf(asOf, cfg.fiscalStartMonth), cfg.fiscalStartMonth)
-  while (quarters.length < maxQuarters && q.start > firstData) { quarters.unshift(q); q = prevQuarter(q, cfg.fiscalStartMonth) }
+  while (quarters.length < maxQuarters && q.start > firstData && calledAt(q) >= firstEvent) { quarters.unshift(q); q = prevQuarter(q, cfg.fiscalStartMonth) }
   const owners = [...new Set(ds.opps.map(o => o.owner))].sort()
   const teamOf = new Map(ds.opps.map(o => [o.owner, o.team]))
   const per = new Map(owners.map(o => [o, [] as AccCell[]]))
   const team: AccCell[] = []
   for (const qq of quarters) {
-    const t = qq.start + (cfg.forecastWeek - 1) * 7 * DAY
+    const t = calledAt(qq)
     const tot = { forecast: 0, best: 0, actual: 0 }
     const acc = new Map(owners.map(o => [o, { forecast: 0, best: 0, actual: 0 }]))
     for (const o of ds.opps) {
@@ -444,7 +454,7 @@ export function conversion(ds: Dataset, cfg: Config, idx = indexHistory(ds.histo
   const winRate = won.length + lost.length ? won.length / (won.length + lost.length) : null
   const avgWon = won.length ? won.reduce((s, o) => s + o.amount, 0) / won.length : 0
   const cycleDays = won.length ? won.reduce((s, o) => s + Math.max(0, o.closeDate - o.created) / DAY, 0) / won.length : null
-  const openCount = ds.opps.filter(o => !isClosed(o.stage) && o.created <= asOf).length
+  const openCount = ds.opps.filter(o => !isClosed(o.stage) && o.created <= endOfDay(asOf)).length
   return {
     stages: stats.map(({ days, ...s }) => ({ ...s, conversion: s.advanced + s.lost ? s.advanced / (s.advanced + s.lost) : null, avgDays: days.length ? days.reduce((a, b) => a + b, 0) / days.length : null })),
     winRate, avgWon, cycleDays, openCount,
@@ -481,7 +491,7 @@ export function snapshot(ds: Dataset, cfg: Config, id: string, dupClusters: numb
   const h = hygiene(ds, cfg, idx)
   const w = waterfall(ds, cfg, idx)
   const fc = fcResolver(ds)
-  const c = callAt(ds, idx, w.q, h.asOf, fc)
+  const c = callAt(ds, idx, w.q, endOfDay(h.asOf), fc)
   const acc = accuracy(ds, cfg, idx)
   return {
     id, label: `Week of ${new Date(h.asOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`,

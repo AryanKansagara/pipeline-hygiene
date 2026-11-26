@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
-import { closeDateUpdateCsv, mailto, mergePlanCsv, ownerEmail, ruleSummary, survivorshipCsv } from './engine/actions.ts'
+import { activeApprovals, closeDateUpdateCsv, mailto, mergePlanCsv, ownerEmail, ruleSummary, survivorshipCsv } from './engine/actions.ts'
 import { clusterKey, findDuplicates, reviewed, survivorship, mergeBatches, type Cluster } from './engine/dedupe.ts'
-import { isoDate, realisticClose, weeklyCalls, type OppRow, type Snapshot } from './engine/pipeline.ts'
+import { hasStageHistory, isoDate, realisticClose, weeklyCalls, type OppRow, type Snapshot } from './engine/pipeline.ts'
 import { DAY, RULE_LABEL, RULES, type PartyKind, type RuleId } from './engine/types.ts'
 import { Dial, ScoreBadge, short, Spark, StepDetail, WaterfallChart, WaterLegend } from './charts.tsx'
 import type { Tab, TabProps } from './Project.tsx'
 import { backfill } from './projectData.ts'
 import { getDefaults } from './store.ts'
 import { deleteSnapshotCloud } from './sync.ts'
-import { ask, CopyButton, download, Empty, fmtDate, fmtMoney, fmtN, fmtPct, Link, signed, toast } from './ui.tsx'
+import { ask, CopyButton, download, Empty, fmtDate, fmtMoney, fmtN, fmtPct, Link, NoHistory, signed, toast } from './ui.tsx'
 
 export default function Tabs(p: TabProps & { tab: Tab }) {
   const needsOpps = p.tab === 'overview' || p.tab === 'hygiene' || p.tab === 'forecast'
@@ -29,7 +29,7 @@ const slug = (s: string) => s.replace(/\W+/g, '-').replace(/^-|-$/g, '').toLower
 
 // ---------- Overview ----------
 
-function Overview({ project, a }: TabProps) {
+function Overview({ project, ds, a }: TabProps) {
   const { h, wf, acc } = a
   const [real, setReal] = useState(true)
   const [sel, setSel] = useState<number>(() => wf ? wf.steps.reduce((bi, s, i, l) => (s.end - s.start) < (l[bi].end - l[bi].start) ? i : bi, 0) : 0)
@@ -37,11 +37,12 @@ function Overview({ project, a }: TabProps) {
   const accByOwner = new Map(acc.owners.map(o => [o.owner, o]))
   return (
     <>
+      {!hasStageHistory(ds) && <NoHistory />}
       <div className="kpis">
         <div className="kpi"><small>Pipeline hygiene</small><b>{h.total.score}<span className="unit">/100</span></b><p>{fmtPct(h.total.clean)} of open deals are clean</p></div>
         <div className="kpi"><small>Open pipeline</small><b>{short(h.total.amount)}</b><p>{short(h.total.flaggedAmount)} sits on flagged deals</p></div>
         <div className="kpi"><small>{wf.q.label} commit today</small><b>{short(wf.end)}</b><p>Realistic: <strong>{short(wf.realisticEnd)}</strong> ({wf.projected.length} deals likely to slip)</p></div>
-        <div className="kpi"><small>Forecast accuracy (week {acc.week})</small><b>{acc.team.mape === null ? '—' : fmtPct(Math.max(0, 1 - acc.team.mape))}</b><p>{acc.team.bias === null ? 'Needs a closed quarter' : `MAPE ${fmtPct(acc.team.mape ?? 0)}, bias ${signed(acc.team.bias, v => fmtPct(v))}`}</p></div>
+        <div className="kpi"><small>Forecast accuracy (week {acc.week})</small><b>{acc.team.mape === null ? '—' : fmtPct(Math.max(0, 1 - acc.team.mape))}</b><p>{acc.team.bias === null ? 'Needs a closed quarter with history' : `MAPE ${fmtPct(acc.team.mape ?? 0)}, bias ${signed(acc.team.bias, v => fmtPct(v))}`}</p></div>
       </div>
 
       <div className="panel">
@@ -96,7 +97,7 @@ function Hygiene({ project, ds, cfg, a, setConfig }: TabProps) {
   const [find, setFind] = useState('')
   const [limit, setLimit] = useState(50)
   const defs = getDefaults()
-  const approved = cfg.approved
+  const approved = useMemo(() => activeApprovals(cfg, ds.opps, a.h.asOf), [cfg, ds.opps, a.h.asOf])
   const fsm = cfg.fiscalStartMonth
 
   const rows = useMemo(() => a.h.rows.filter(r => r.flags.length && (!owner || r.opp.owner === owner) && (!rule || r.flags.includes(rule)) && (!find || `${r.opp.name} ${r.opp.account}`.toLowerCase().includes(find.toLowerCase()))), [a.h.rows, owner, rule, find])
@@ -105,21 +106,23 @@ function Hygiene({ project, ds, cfg, a, setConfig }: TabProps) {
     // A past-due date with no history pattern still needs a future date: default to two weeks out.
     return rc.basis === 'none' && r.opp.closeDate < a.h.asOf ? { ...rc, date: a.h.asOf + 14 * DAY } : rc
   }
+  // Saving keeps only approvals that still apply, each with the close date it replaces.
+  const fromDates = (ids: string[]) => Object.fromEntries(ids.map(id => [id, names.get(id)!.old]))
+  const restore = () => setConfig({ approved: cfg.approved, approvedFrom: cfg.approvedFrom })
   const approve = (id: string, d: number) => {
-    const before = approved
-    setConfig({ approved: { ...approved, [id]: d } })
-    toast(`Approved close date ${isoDate(d)}`, { tone: 'ok', undo: () => setConfig({ approved: before }) })
+    setConfig({ approved: { ...approved, [id]: d }, approvedFrom: fromDates([...Object.keys(approved), id]) })
+    toast(`Approved close date ${isoDate(d)}`, { tone: 'ok', undo: restore })
   }
   const unapprove = (id: string) => { const { [id]: _, ...rest } = approved; setConfig({ approved: rest }) }
   const approveAll = () => {
-    const before = approved, next = { ...approved }
+    const next = { ...approved }
     let n = 0
     for (const r of rows) if ((r.flags.includes('pastDue') || r.flags.includes('pushed')) && !next[r.opp.id]) { const s = suggest(r); if (s.date !== r.opp.closeDate) { next[r.opp.id] = s.date; n++ } }
-    setConfig({ approved: next })
-    toast(`Approved ${n} close-date fixes`, { tone: 'ok', undo: () => setConfig({ approved: before }) })
+    setConfig({ approved: next, approvedFrom: fromDates(Object.keys(next)) })
+    toast(`Approved ${n} close-date fixes`, { tone: 'ok', undo: restore })
   }
   const names = useMemo(() => new Map(ds.opps.map(o => [o.id, { name: o.name, old: o.closeDate }])), [ds.opps])
-  const nApproved = Object.keys(approved).filter(id => names.has(id)).length
+  const nApproved = Object.keys(approved).length
   const ownerRows = a.h.rows.filter(r => r.opp.owner === (owner || a.h.owners[0]?.key))
   const mailOwner = owner || a.h.owners[0]?.key || ''
   const email = ownerEmail(mailOwner, ownerRows, defs.sender, defs.callDay)
@@ -173,7 +176,7 @@ function Hygiene({ project, ds, cfg, a, setConfig }: TabProps) {
           <div className="row gap wrap">
             <button type="button" className="btn primary" disabled={!nApproved} onClick={() => download(`close-date-updates-${isoDate(a.h.asOf)}.csv`, closeDateUpdateCsv(approved, names))}>Download update CSV</button>
             <button type="button" className="btn outline" onClick={approveAll}>Approve all suggestions in view</button>
-            {nApproved > 0 && <button type="button" className="btn danger-ghost" onClick={async () => { if (await ask('Clear all approvals?', `Removes ${nApproved} approved close-date fixes. You can undo for a few seconds.`, 'Clear approvals')) { const before = approved; setConfig({ approved: {} }); toast('Cleared approvals', { undo: () => setConfig({ approved: before }) }) } }}>Clear</button>}
+            {nApproved > 0 && <button type="button" className="btn danger-ghost" onClick={async () => { if (await ask('Clear all approvals?', `Removes ${nApproved} approved close-date fixes. You can undo for a few seconds.`, 'Clear approvals')) { setConfig({ approved: {}, approvedFrom: {} }); toast('Cleared approvals', { undo: restore }) } }}>Clear</button>}
           </div>
         </div>
         <div className="panel">
@@ -222,11 +225,12 @@ function Forecast({ ds, cfg, a }: TabProps) {
 
   return (
     <>
+      {!hasStageHistory(ds) && <NoHistory />}
       <div className="grid-2">
         <div className="panel center-panel">
           <h2>Forecast accuracy</h2>
           <Dial mape={acc.team.mape} bias={acc.team.bias} label={`commit at week ${acc.week}`} />
-          <p className="muted small">Commit (won + open Commit closing in the quarter) as it stood at week {acc.week}, against closed-won at quarter end, over the last {acc.quarters.length} quarters. MAPE is the mean absolute error; bias is total called vs total won.</p>
+          <p className="muted small">Commit (won + open Commit closing in the quarter) as it stood at week {acc.week}, against closed-won at quarter end, over {acc.quarters.length ? `the last ${acc.quarters.length} quarters` : 'the completed quarters that history covers (none yet)'}. MAPE is the mean absolute error; bias is total called vs total won.</p>
         </div>
         <div className="panel">
           <h2>{wk.q.label} week by week</h2>

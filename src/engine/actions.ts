@@ -1,7 +1,7 @@
 import { toCsv } from './csv.ts'
 import { mergeBatches, survivorship, type Cluster } from './dedupe.ts'
-import { isoDate, type OppRow } from './pipeline.ts'
-import { RULE_LABEL, type Dataset, type RuleId } from './types.ts'
+import { isClosed, isoDate, type OppRow } from './pipeline.ts'
+import { RULE_LABEL, type Config, type Dataset, type Opp, type RuleId } from './types.ts'
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
 
@@ -30,6 +30,17 @@ export function ownerEmail(owner: string, rows: OppRow[], from = 'Sales Ops', du
 }
 
 export const mailto = (to: string, e: { subject: string; body: string }) => `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(e.subject)}&body=${encodeURIComponent(e.body)}`
+
+/** Approvals that still apply: the deal is open, its close date is the one that was approved away, and the new date has not passed. */
+export function activeApprovals({ approved, approvedFrom }: Pick<Config, 'approved' | 'approvedFrom'>, opps: Opp[], asOf: number): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const o of opps) {
+    const d = approved[o.id]
+    if (d === undefined || d < asOf || d === o.closeDate || isClosed(o.stage)) continue
+    if ((approvedFrom?.[o.id] ?? o.closeDate) === o.closeDate) out[o.id] = d
+  }
+  return out
+}
 
 /** Data Loader "Update" file: Id plus the fields to change. Close dates as YYYY-MM-DD. */
 export function closeDateUpdateCsv(approved: Record<string, number>, names: Map<string, { name: string; old: number }>): string {

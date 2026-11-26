@@ -66,6 +66,9 @@ export function asOfDate(ds: Dataset, cfg: Config): number {
 
 // ---------- History ----------
 
+/** Without stage changes a past week cannot be rebuilt: a won deal looks won all along. */
+export const hasStageHistory = (ds: Dataset) => ds.history.some(e => e.field === 'stage')
+
 export type HistIndex = Map<string, HistEvent[]>
 
 export function indexHistory(history: HistEvent[]): HistIndex {
@@ -374,20 +377,23 @@ const summarize = (owner: string, team: string, cells: AccCell[]): OwnerAcc => {
  * Commit called at week N of each completed quarter vs closed-won in that quarter.
  * err = (forecast - actual) / actual: negative means sandbagging, positive means over-forecasting.
  * A commit with nothing won is a 100% miss (capped, since the ratio is undefined) rather than being left out.
+ * A quarter whose week N lies before the history starts is left out: the call cannot be rebuilt, and today's values are not it.
  */
 export function accuracy(ds: Dataset, cfg: Config, idx = indexHistory(ds.history), maxQuarters = 6): Accuracy {
   const asOf = asOfDate(ds, cfg)
   const fc = fcResolver(ds)
   const firstData = ds.opps.reduce((m, o) => Math.min(m, o.created), Infinity)
+  const firstEvent = hasStageHistory(ds) ? ds.history.reduce((m, e) => Math.min(m, e.at), Infinity) : Infinity
+  const calledAt = (q: Quarter) => q.start + (cfg.forecastWeek - 1) * 7 * DAY
   const quarters: Quarter[] = []
   let q = prevQuarter(quarterOf(asOf, cfg.fiscalStartMonth), cfg.fiscalStartMonth)
-  while (quarters.length < maxQuarters && q.start > firstData) { quarters.unshift(q); q = prevQuarter(q, cfg.fiscalStartMonth) }
+  while (quarters.length < maxQuarters && q.start > firstData && calledAt(q) >= firstEvent) { quarters.unshift(q); q = prevQuarter(q, cfg.fiscalStartMonth) }
   const owners = [...new Set(ds.opps.map(o => o.owner))].sort()
   const teamOf = new Map(ds.opps.map(o => [o.owner, o.team]))
   const per = new Map(owners.map(o => [o, [] as AccCell[]]))
   const team: AccCell[] = []
   for (const qq of quarters) {
-    const t = qq.start + (cfg.forecastWeek - 1) * 7 * DAY
+    const t = calledAt(qq)
     const tot = { forecast: 0, best: 0, actual: 0 }
     const acc = new Map(owners.map(o => [o, { forecast: 0, best: 0, actual: 0 }]))
     for (const o of ds.opps) {
